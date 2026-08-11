@@ -1,0 +1,6 @@
+{
+  "name": "BMX Brasil - Gerenciamento de Provas",
+  "description": "Sistema completo de gerenciamento de provas, inscrições, transponders, resultados SQORZ/UCI e rankings de BMX no Brasil.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
