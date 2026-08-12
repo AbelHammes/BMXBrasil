@@ -63,7 +63,7 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
   const [categoriaSelecionadaId, setCategoriaSelecionadaId] = useState<string>(
     categorias[0]?.id || ''
   );
-  const [faseFiltro, setFaseFiltro] = useState<FaseMoto>('Classificatória 1');
+  const [faseFiltro, setFaseFiltro] = useState<FaseMoto>('Moto 1');
   const [modoEntrada, setModoEntrada] = useState<'POSICAO' | 'TEMPO'>('POSICAO');
   const [metodoSorteio, setMetodoSorteio] = useState<MetodoSorteio>('UCI_RANDOM');
   const [mensagemStatus, setMensagemStatus] = useState<string | null>(null);
@@ -965,9 +965,9 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
               onChange={(e) => setFaseFiltro(e.target.value as FaseMoto)}
               className="w-full bg-slate-800 text-amber-300 font-bold text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-amber-400"
             >
-              <option value="Classificatória 1">Moto 1 - Classificatória</option>
-              <option value="Classificatória 2">Moto 2 - Classificatória</option>
-              <option value="Classificatória 3">Moto 3 - Classificatória</option>
+              <option value="Moto 1">Moto 1</option>
+              <option value="Moto 2">Moto 2</option>
+              <option value="Moto 3">Moto 3</option>
               <option value="Semifinal">Semifinal (Gatilho Direto)</option>
               <option value="Final">Grande Final (Gatilho de Ouro)</option>
             </select>

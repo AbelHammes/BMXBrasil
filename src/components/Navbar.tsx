@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserRole } from '../types/bmx';
 import {
   ShieldAlert,
@@ -15,23 +15,34 @@ import {
   User,
   Flag,
   Eye,
+  Key,
+  Share2,
+  Check,
 } from 'lucide-react';
 
 interface NavbarProps {
-  currentRole: UserRole;
-  setCurrentRole: (role: UserRole) => void;
+  currentRole: UserRole | 'ESPECTADOR';
+  setCurrentRole: (role: UserRole | 'ESPECTADOR') => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  selectedAthleteId?: string;
-  setSelectedAthleteId?: (id: string) => void;
+  onOpenLoginModal: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentRole,
-  setCurrentRole,
   activeTab,
   setActiveTab,
+  onOpenLoginModal,
 }) => {
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopySpectatorLink = () => {
+    const spectatorUrl = `${window.location.origin}${window.location.pathname}?modo=espectadores`;
+    navigator.clipboard.writeText(spectatorUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
   return (
     <header className="bg-slate-900 text-white shadow-xl border-b-4 border-emerald-500 sticky top-0 z-50">
       {/* Top Ticker / Flag Bar */}
@@ -56,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Main Branding & Role Switcher */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 py-1.5 sm:py-3 flex flex-row items-center justify-between gap-2">
         {/* Logo */}
-        <div className="flex items-center gap-2 sm:gap-3 cursor-pointer shrink-0" onClick={() => setActiveTab('provas')}>
+        <div className="flex items-center gap-2 sm:gap-3 cursor-pointer shrink-0" onClick={() => setActiveTab('espectadores')}>
           <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-emerald-600 via-yellow-400 to-blue-700 p-0.5 shadow-lg flex items-center justify-center shrink-0">
             <div className="w-full h-full bg-slate-950 rounded-[8px] sm:rounded-[10px] flex items-center justify-center font-black text-amber-400 text-sm sm:text-xl tracking-tighter">
               BMX
@@ -75,60 +86,78 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Role Selector Badge */}
-        <div className="flex items-center bg-slate-800 p-1 sm:p-1.5 rounded-xl border border-slate-700 shadow-inner shrink-0">
-          <span className="text-xs font-semibold text-slate-400 px-2 hidden sm:inline">Perfil:</span>
-          <div className="flex space-x-1">
-            <button
-              onClick={() => {
-                setCurrentRole('ADMIN');
-                setActiveTab('motor-provas');
-              }}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition flex items-center gap-1 ${
-                currentRole === 'ADMIN'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
-                  : 'text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              Admin
-            </button>
-            <button
-              onClick={() => {
-                setCurrentRole('DIRIGENTE');
-                setActiveTab('equipe-dirigente');
-              }}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition flex items-center gap-1 ${
-                currentRole === 'DIRIGENTE'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md'
-                  : 'text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <ShieldAlert className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              Dirigente
-            </button>
-            <button
-              onClick={() => {
-                setCurrentRole('ATLETA');
-                setActiveTab('painel-atleta');
-              }}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition flex items-center gap-1 ${
-                currentRole === 'ATLETA'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              Atleta
-            </button>
-          </div>
+        {/* Right Action Bar: Copy Spectator Link + Login / Role Profile */}
+        <div className="flex items-center space-x-2 shrink-0">
+          {/* Share Spectator Link Button */}
+          <button
+            onClick={handleCopySpectatorLink}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-2.5 sm:px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-md border border-indigo-400/30"
+            title="Copiar link público direto para o Portal do Espectador"
+          >
+            {copiedLink ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-300" />
+                <span className="text-[11px]">Link Copiado!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Link Espectadores</span>
+              </>
+            )}
+          </button>
+
+          {/* Current Role Badge & Login Trigger */}
+          <button
+            onClick={onOpenLoginModal}
+            className="bg-slate-800 hover:bg-slate-700 p-1.5 sm:p-2 rounded-xl border border-slate-700 flex items-center gap-1.5 sm:gap-2 transition shadow-inner"
+          >
+            <div className="flex items-center gap-1 text-[11px] sm:text-xs font-bold">
+              {currentRole === 'ADMIN' && (
+                <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                  <Zap className="w-3 h-3 fill-slate-950" /> Admin
+                </span>
+              )}
+              {currentRole === 'DIRIGENTE' && (
+                <span className="bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                  <ShieldAlert className="w-3 h-3" /> Dirigente
+                </span>
+              )}
+              {currentRole === 'ATLETA' && (
+                <span className="bg-blue-600 text-white px-2 py-0.5 rounded-lg flex items-center gap-1">
+                  <User className="w-3 h-3" /> Atleta
+                </span>
+              )}
+              {currentRole === 'ESPECTADOR' && (
+                <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-lg flex items-center gap-1">
+                  <Eye className="w-3 h-3" /> Espectador
+                </span>
+              )}
+            </div>
+
+            <span className="text-[10px] text-slate-400 bg-slate-950 px-2 py-1 rounded-md border border-slate-800 hidden sm:flex items-center gap-1">
+              <Key className="w-3 h-3 text-amber-400" /> Entrar / Login
+            </span>
+          </button>
         </div>
       </div>
 
       {/* Navigation Sub-Menu Bar */}
       <nav className="bg-slate-950 border-t border-slate-800 px-2 sm:px-4">
         <div className="max-w-7xl mx-auto flex items-center overflow-x-auto space-x-1 py-1 scrollbar-none text-[11px] sm:text-xs">
-          {/* Public / Placar Live option always visible */}
+          {/* Spectator / Public links always available */}
+          <button
+            onClick={() => setActiveTab('espectadores')}
+            className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'espectadores'
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                : 'text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5 text-indigo-400" />
+            Espectadores <span className="hidden sm:inline">(Inscritos e Resultados)</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('placar-ao-vivo')}
             className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
@@ -142,19 +171,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="sm:hidden">Ao Vivo</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('espectadores')}
-            className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-              activeTab === 'espectadores'
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5 text-indigo-400" />
-            Espectadores <span className="hidden sm:inline">(Inscritos e Resultados)</span>
-          </button>
-
-          {/* ADMIN Menu */}
+          {/* ADMIN Menu Items */}
           {currentRole === 'ADMIN' && (
             <>
               <button
@@ -166,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Zap className="w-3.5 h-3.5 text-amber-400" />
-                Motor de Provas
+                Motor de Provas (SQORZ)
               </button>
               <button
                 onClick={() => setActiveTab('transponder-booth')}
@@ -248,7 +265,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           )}
 
-          {/* DIRIGENTE Menu */}
+          {/* DIRIGENTE Menu - Permission Restricted ONLY to Team Inscriptions & Race Calendar */}
           {currentRole === 'DIRIGENTE' && (
             <>
               <button
@@ -260,7 +277,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />
-                Minha Equipe
+                Inscrição da Minha Equipe
               </button>
               <button
                 onClick={() => setActiveTab('inscrever-equipe')}
@@ -271,7 +288,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <UserCheck className="w-3.5 h-3.5 text-amber-400" />
-                Inscrever Atletas nas Provas
+                Gerenciar Inscrições em Provas
               </button>
               <button
                 onClick={() => setActiveTab('provas')}
@@ -287,7 +304,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           )}
 
-          {/* ATLETA Menu */}
+          {/* ATLETA Menu - Permission Restricted ONLY to Athlete Inscriptions & Rankings */}
           {currentRole === 'ATLETA' && (
             <>
               <button
@@ -299,7 +316,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <User className="w-3.5 h-3.5 text-blue-400" />
-                Meu Painel & Gatilhos
+                Meu Painel
               </button>
               <button
                 onClick={() => setActiveTab('provas')}
@@ -310,7 +327,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Flag className="w-3.5 h-3.5 text-blue-400" />
-                Inscrições em Provas
+                Minhas Inscrições em Provas
               </button>
               <button
                 onClick={() => setActiveTab('rankings')}
@@ -321,7 +338,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Award className="w-3.5 h-3.5 text-amber-400" />
-                Minha Pontuação de Ranking
+                Pontuação de Ranking
               </button>
             </>
           )}

@@ -21,6 +21,7 @@ import {
   TRANSPONDER_LOGS_DEMO,
 } from './data/mockData';
 import { Navbar } from './components/Navbar';
+import { AuthLoginModal } from './components/Auth/AuthLoginModal';
 import { RaceEngineSQORZ } from './components/Admin/RaceEngineSQORZ';
 import { TransponderBooth } from './components/Admin/TransponderBooth';
 import { CompetitionsManager } from './components/Admin/CompetitionsManager';
@@ -35,8 +36,20 @@ import { ClubsManager } from './components/Admin/ClubsManager';
 import { BackupsIntegridadeManager } from './components/Admin/BackupsIntegridadeManager';
 
 export default function App() {
-  const [currentRole, setCurrentRole] = useState<UserRole>('ADMIN');
-  const [activeTab, setActiveTab] = useState<string>('motor-provas');
+  // Check URL parameters for direct spectator link (e.g. ?modo=espectadores)
+  const queryParams = new URLSearchParams(window.location.search);
+  const isPublicSpectatorMode =
+    queryParams.get('modo') === 'espectadores' ||
+    queryParams.get('public') === 'true' ||
+    queryParams.get('espectador') === 'true';
+
+  const [currentRole, setCurrentRole] = useState<UserRole | 'ESPECTADOR'>(
+    isPublicSpectatorMode ? 'ESPECTADOR' : 'ADMIN'
+  );
+  const [activeTab, setActiveTab] = useState<string>(
+    isPublicSpectatorMode ? 'espectadores' : 'motor-provas'
+  );
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   // Core Persistent State
   const [categorias, setCategorias] = useState<Categoria[]>(() => {
@@ -91,6 +104,15 @@ export default function App() {
     localStorage.setItem('bmx_transponder_logs', JSON.stringify(transponderLogs));
   }, [categorias, clubes, atletas, rankings, provas, inscricoes, baterias, transponderLogs]);
 
+  // Handle Login Role Success
+  const handleLoginSuccess = (role: UserRole | 'ESPECTADOR') => {
+    setCurrentRole(role);
+    if (role === 'ADMIN') setActiveTab('motor-provas');
+    else if (role === 'DIRIGENTE') setActiveTab('equipe-dirigente');
+    else if (role === 'ATLETA') setActiveTab('painel-atleta');
+    else setActiveTab('espectadores');
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-amber-400 selection:text-slate-950">
       {/* Navigation Header */}
@@ -99,11 +121,23 @@ export default function App() {
         setCurrentRole={setCurrentRole}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        onOpenLoginModal={() => setIsAuthModalOpen(true)}
+      />
+
+      {/* Login / Auth Modal */}
+      <AuthLoginModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentRole={currentRole}
+        onLoginSuccess={handleLoginSuccess}
+        clubes={clubes}
+        atletas={atletas}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {activeTab === 'motor-provas' && (
+        {/* ADMIN TAB VIEWS */}
+        {currentRole === 'ADMIN' && activeTab === 'motor-provas' && (
           <RaceEngineSQORZ
             provas={provas}
             categorias={categorias}
@@ -113,7 +147,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'transponder-booth' && (
+        {currentRole === 'ADMIN' && activeTab === 'transponder-booth' && (
           <TransponderBooth
             inscricoes={inscricoes}
             setInscricoes={setInscricoes}
@@ -131,7 +165,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'inscricoes' && (
+        {currentRole === 'ADMIN' && activeTab === 'inscricoes' && (
           <AthletesList
             inscricoes={inscricoes}
             setInscricoes={setInscricoes}
@@ -140,7 +174,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'clubes' && (
+        {currentRole === 'ADMIN' && activeTab === 'clubes' && (
           <ClubsManager clubes={clubes} setClubes={setClubes} />
         )}
 
@@ -154,14 +188,14 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'categorias' && (
+        {currentRole === 'ADMIN' && activeTab === 'categorias' && (
           <CategoriesManager
             categorias={categorias}
             setCategorias={setCategorias}
           />
         )}
 
-        {activeTab === 'backups-integridade' && (
+        {currentRole === 'ADMIN' && activeTab === 'backups-integridade' && (
           <BackupsIntegridadeManager
             categorias={categorias}
             setCategorias={setCategorias}
@@ -182,20 +216,23 @@ export default function App() {
           />
         )}
 
-        {(activeTab === 'equipe-dirigente' || activeTab === 'inscrever-equipe') && (
-          <DirigentePortal
-            clubes={clubes}
-            setClubes={setClubes}
-            atletas={atletas}
-            setAtletas={setAtletas}
-            provas={provas}
-            categorias={categorias}
-            inscricoes={inscricoes}
-            setInscricoes={setInscricoes}
-          />
-        )}
+        {/* DIRIGENTE TAB VIEWS */}
+        {currentRole === 'DIRIGENTE' &&
+          (activeTab === 'equipe-dirigente' || activeTab === 'inscrever-equipe') && (
+            <DirigentePortal
+              clubes={clubes}
+              setClubes={setClubes}
+              atletas={atletas}
+              setAtletas={setAtletas}
+              provas={provas}
+              categorias={categorias}
+              inscricoes={inscricoes}
+              setInscricoes={setInscricoes}
+            />
+          )}
 
-        {activeTab === 'painel-atleta' && (
+        {/* ATLETA TAB VIEWS */}
+        {currentRole === 'ATLETA' && activeTab === 'painel-atleta' && (
           <AtletaPortal
             atletas={atletas}
             baterias={baterias}
@@ -204,6 +241,7 @@ export default function App() {
           />
         )}
 
+        {/* PUBLIC & SPECTATOR TAB VIEWS */}
         {activeTab === 'placar-ao-vivo' && (
           <LiveScoreboard
             provas={provas}
@@ -235,9 +273,13 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-4 text-slate-400">
-            <span className="hover:text-amber-400 cursor-pointer">Regulamento UCI BMX</span>
+            <button onClick={() => setIsAuthModalOpen(true)} className="hover:text-amber-400">
+              🔑 Área Restrita / Login
+            </button>
             <span>•</span>
-            <span className="hover:text-amber-400 cursor-pointer">Sistema de Transponders</span>
+            <button onClick={() => { setActiveTab('espectadores'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-amber-400">
+              👀 Espectadores
+            </button>
             <span>•</span>
             <span className="hover:text-amber-400 cursor-pointer">União Ciclística Internacional (UCI)</span>
           </div>

@@ -76,8 +76,9 @@ export function gerarBateriasQualificatorias(
   const totalInscritos = inscritos.length;
   const totalBaterias = Math.ceil(totalInscritos / MAX_PER_MOTO);
 
-  const fases: FaseMoto[] = ['Classificatória 1', 'Classificatória 2', 'Classificatória 3'];
+  const fases: FaseMoto[] = ['Moto 1', 'Moto 2', 'Moto 3'];
   const bateriasGeradas: BateriaMoto[] = [];
+  let bateriaCounter = 1;
 
   if (metodo === 'UCI_RANKING') {
     // Sort riders by ranking position (or plate number / index fallback)
@@ -131,7 +132,7 @@ export function gerarBateriasQualificatorias(
           categoriaId,
           categoriaNome,
           fase,
-          numeroBateria: heatIndex + 1,
+          numeroBateria: bateriaCounter++,
           pilotos,
           status: 'Aguardando',
         });
@@ -166,7 +167,7 @@ export function gerarBateriasQualificatorias(
           categoriaId,
           categoriaNome,
           fase,
-          numeroBateria: heatIndex + 1,
+          numeroBateria: bateriaCounter++,
           pilotos,
           status: 'Aguardando',
         });
@@ -201,7 +202,7 @@ export function gerarBateriasQualificatorias(
           categoriaId,
           categoriaNome,
           fase,
-          numeroBateria: heatIndex + 1,
+          numeroBateria: bateriaCounter++,
           pilotos,
           status: 'Aguardando',
         });
@@ -312,9 +313,9 @@ export function calcularResultadoAcumuladoQualificatorias(
       const record = mapaAtletas.get(p.atletaId)!;
       const pontosPos = p.pontosMoto !== undefined ? p.pontosMoto : 8;
 
-      if (bateria.fase === 'Classificatória 1') record.p1 = pontosPos;
-      if (bateria.fase === 'Classificatória 2') record.p2 = pontosPos;
-      if (bateria.fase === 'Classificatória 3') record.p3 = pontosPos;
+      if (bateria.fase === 'Moto 1' || bateria.fase === 'Classificatória 1') record.p1 = pontosPos;
+      if (bateria.fase === 'Moto 2' || bateria.fase === 'Classificatória 2') record.p2 = pontosPos;
+      if (bateria.fase === 'Moto 3' || bateria.fase === 'Classificatória 3') record.p3 = pontosPos;
 
       if (p.tempoSegundos && p.tempoSegundos > 0) {
         record.tempos.push(p.tempoSegundos);

@@ -97,7 +97,7 @@ export interface Inscricao {
   dataInscricao: string;
 }
 
-export type FaseMoto = 'Classificatória 1' | 'Classificatória 2' | 'Classificatória 3' | 'Quartas de Final' | 'Semifinal' | 'Final';
+export type FaseMoto = 'Moto 1' | 'Moto 2' | 'Moto 3' | 'Quartas de Final' | 'Semifinal' | 'Final';
 
 export interface PilotoMotoState {
   atletaId: string;
