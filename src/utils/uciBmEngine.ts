@@ -1,4 +1,4 @@
-import { Atleta, BateriaMoto, Categoria, FaseMoto, PilotoMotoState, ResultadoCategoriaFinal } from '../types/bmx';
+import { Atleta, BateriaMoto, Categoria, FaseMoto, Inscricao, PilotoMotoState, ResultadoCategoriaFinal } from '../types/bmx';
 
 /**
  * Calculates UCI Competition Age: Current Year minus Birth Year
@@ -519,3 +519,114 @@ export function obterPontosPosicao(posicao: number): number {
   if (item) return item.pontos;
   return Math.max(1, 20 - posicao);
 }
+
+export interface ValidacaoInscricaoBMXResult {
+  valido: boolean;
+  motivo?: 'OK' | 'MESMA_CATEGORIA' | 'MESMO_ARO' | 'LIMITE_EXCEDIDO' | 'CATEGORIA_INVALIDA';
+  erro?: string;
+  categoriaExistenteNome?: string;
+  tipoBikeExistente?: 'Aro 20"' | 'Cruiser 24"';
+  tipoBikeNovo?: 'Aro 20"' | 'Cruiser 24"';
+}
+
+/**
+ * Regra Oficial BMX (CBC / UCI):
+ * 1. Não é permitido cadastrar/adicionar o mesmo atleta 2 vezes na mesma categoria de uma prova.
+ * 2. O atleta somente pode ser adicionado mais de uma vez na mesma prova se for em uma categoria
+ *    de bike Aro 20" e em outra categoria de bike Aro 24" (Cruiser).
+ */
+export function validarInscricaoAtletaRegraAro(
+  atletaId: string,
+  atletaCpf: string,
+  provaId: string,
+  novaCategoriaId: string,
+  categorias: Categoria[],
+  inscricoes: Inscricao[]
+): ValidacaoInscricaoBMXResult {
+  const novaCat = categorias.find((c) => c.id === novaCategoriaId);
+  if (!novaCat) {
+    return {
+      valido: false,
+      motivo: 'CATEGORIA_INVALIDA',
+      erro: 'Categoria de destino não encontrada ou inválida.',
+    };
+  }
+
+  const cpfLimpo = atletaCpf ? atletaCpf.replace(/\D/g, '') : '';
+
+  // Inscrições do atleta nesta prova específica
+  const inscricoesAtletaNaProva = inscricoes.filter((ins) => {
+    if (ins.provaId !== provaId) return false;
+    const matchId = atletaId && ins.atletaId === atletaId;
+    const matchCpf = cpfLimpo && ins.atletaCpf && ins.atletaCpf.replace(/\D/g, '') === cpfLimpo;
+    return matchId || matchCpf;
+  });
+
+  // Se ainda não tiver inscrição nesta prova, é 100% válido
+  if (inscricoesAtletaNaProva.length === 0) {
+    return {
+      valido: true,
+      motivo: 'OK',
+      tipoBikeNovo: novaCat.tipoBike,
+    };
+  }
+
+  // Regra 1: Impedir duplicidade na mesma categoria
+  const jaInscritoMesmaCat = inscricoesAtletaNaProva.some(
+    (ins) => ins.categoriaId === novaCategoriaId || ins.categoriaNome.trim().toLowerCase() === novaCat.nome.trim().toLowerCase()
+  );
+
+  if (jaInscritoMesmaCat) {
+    return {
+      valido: false,
+      motivo: 'MESMA_CATEGORIA',
+      erro: `Bloqueio: O atleta já está inscrito na categoria "${novaCat.nome}" nesta prova. Não é permitido adicionar o mesmo atleta duas vezes na mesma categoria.`,
+      categoriaExistenteNome: novaCat.nome,
+      tipoBikeNovo: novaCat.tipoBike,
+    };
+  }
+
+  // Regra 2: Limite máximo de 2 inscrições por prova (1 Aro 20" + 1 Cruiser 24")
+  if (inscricoesAtletaNaProva.length >= 2) {
+    return {
+      valido: false,
+      motivo: 'LIMITE_EXCEDIDO',
+      erro: `Limite atingido: O atleta já possui 2 inscrições nesta prova (1 em Aro 20" e 1 em Cruiser 24"). O regulamento não permite uma terceira categoria.`,
+      tipoBikeNovo: novaCat.tipoBike,
+    };
+  }
+
+  // Regra 3: Se já possui 1 inscrição, a segunda obrigatoriamente tem que ser de Aro diferente (um Aro 20" e um Cruiser 24")
+  const inscricaoAnterior = inscricoesAtletaNaProva[0];
+  const catAnterior = categorias.find((c) => c.id === inscricaoAnterior.categoriaId);
+  
+  const tipoBikeAnterior: 'Aro 20"' | 'Cruiser 24"' =
+    catAnterior?.tipoBike ||
+    (inscricaoAnterior.categoriaNome.toLowerCase().includes('cruiser') || inscricaoAnterior.categoriaNome.includes('24')
+      ? 'Cruiser 24"'
+      : 'Aro 20"');
+
+  const tipoBikeNovo: 'Aro 20"' | 'Cruiser 24"' = novaCat.tipoBike;
+
+  if (tipoBikeAnterior === tipoBikeNovo) {
+    const nomeBikeFormatado = tipoBikeNovo === 'Aro 20"' ? 'Aro 20" (Class 20)' : 'Cruiser Aro 24"';
+    return {
+      valido: false,
+      motivo: 'MESMO_ARO',
+      erro: `Regra Oficial BMX: O atleta já está inscrito na categoria "${inscricaoAnterior.categoriaNome}" com bike ${nomeBikeFormatado}. O atleta somente pode ser adicionado em mais de uma categoria se for uma de Aro 20" e outra de Aro 24" (Cruiser).`,
+      categoriaExistenteNome: inscricaoAnterior.categoriaNome,
+      tipoBikeExistente: tipoBikeAnterior,
+      tipoBikeNovo: tipoBikeNovo,
+    };
+  }
+
+  // Se passou todas as validações (uma é Aro 20" e a outra é Cruiser 24")
+  return {
+    valido: true,
+    motivo: 'OK',
+    categoriaExistenteNome: inscricaoAnterior.categoriaNome,
+    tipoBikeExistente: tipoBikeAnterior,
+    tipoBikeNovo: tipoBikeNovo,
+  };
+}
+

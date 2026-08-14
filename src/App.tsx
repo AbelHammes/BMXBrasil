@@ -54,7 +54,19 @@ export default function App() {
   // Core Persistent State
   const [categorias, setCategorias] = useState<Categoria[]>(() => {
     const saved = localStorage.getItem('bmx_categorias');
-    return saved ? JSON.parse(saved) : CATEGORIAS_INICIAIS;
+    if (saved) {
+      try {
+        const parsed: Categoria[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const missing = CATEGORIAS_INICIAIS.filter(c => !parsed.some(p => p.id === c.id));
+          if (missing.length > 0) return [...parsed, ...missing];
+          return parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return CATEGORIAS_INICIAIS;
   });
 
   const [clubes, setClubes] = useState<ClubeEquipe[]>(() => {
@@ -64,7 +76,19 @@ export default function App() {
 
   const [atletas, setAtletas] = useState<Atleta[]>(() => {
     const saved = localStorage.getItem('bmx_atletas');
-    return saved ? JSON.parse(saved) : ATLETAS_INICIAIS;
+    if (saved) {
+      try {
+        const parsed: Atleta[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const missing = ATLETAS_INICIAIS.filter(a => !parsed.some(p => p.id === a.id));
+          if (missing.length > 0) return [...parsed, ...missing];
+          return parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return ATLETAS_INICIAIS;
   });
 
   const [rankings, setRankings] = useState<Ranking[]>(() => {
@@ -74,17 +98,60 @@ export default function App() {
 
   const [provas, setProvas] = useState<ProvaEvento[]>(() => {
     const saved = localStorage.getItem('bmx_provas');
-    return saved ? JSON.parse(saved) : PROVAS_INICIAIS;
+    if (saved) {
+      try {
+        const parsed: ProvaEvento[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map(p => {
+            if (p.id === 'prv-indaiatuba-2026' && !p.categoriasIds.includes('cat-boys-15-16')) {
+              return {
+                ...p,
+                categoriasIds: [...p.categoriasIds, 'cat-boys-15-16'],
+                inscritosCount: p.inscritosCount + 15
+              };
+            }
+            return p;
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return PROVAS_INICIAIS;
   });
 
   const [inscricoes, setInscricoes] = useState<Inscricao[]>(() => {
     const saved = localStorage.getItem('bmx_inscricoes');
-    return saved ? JSON.parse(saved) : INSCRICOES_INICIAIS;
+    if (saved) {
+      try {
+        const parsed: Inscricao[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const missing = INSCRICOES_INICIAIS.filter(i => !parsed.some(p => p.id === i.id));
+          if (missing.length > 0) return [...parsed, ...missing];
+          return parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return INSCRICOES_INICIAIS;
   });
 
   const [baterias, setBaterias] = useState<BateriaMoto[]>(() => {
     const saved = localStorage.getItem('bmx_baterias');
-    return saved ? JSON.parse(saved) : BATERIAS_DEMO;
+    if (saved) {
+      try {
+        const parsed: BateriaMoto[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const missing = BATERIAS_DEMO.filter(b => !parsed.some(p => p.id === b.id));
+          if (missing.length > 0) return [...parsed, ...missing];
+          return parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return BATERIAS_DEMO;
   });
 
   const [transponderLogs, setTransponderLogs] = useState<TransponderValidationLog[]>(() => {
@@ -180,6 +247,11 @@ export default function App() {
             setProvas={setProvas}
             rankings={rankings}
             categorias={categorias}
+            currentRole={currentRole}
+            atletas={atletas}
+            inscricoes={inscricoes}
+            setInscricoes={setInscricoes}
+            authenticatedAthleteId={authenticatedAthleteId}
           />
         )}
 
@@ -259,6 +331,11 @@ export default function App() {
             baterias={baterias}
             inscricoes={inscricoes}
             rankings={rankings}
+            provas={provas}
+            setProvas={setProvas}
+            categorias={categorias}
+            clubes={clubes}
+            setInscricoes={setInscricoes}
             authenticatedAthleteId={authenticatedAthleteId}
             onLogoutAthlete={() => {
               setAuthenticatedAthleteId(null);

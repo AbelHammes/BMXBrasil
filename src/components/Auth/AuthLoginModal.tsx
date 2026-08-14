@@ -22,6 +22,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
   const [selectedRole, setSelectedRole] = useState<UserRole | 'ESPECTADOR'>('ADMIN');
   const [adminPassword, setAdminPassword] = useState('');
   const [selectedClubeId, setSelectedClubeId] = useState<string>(clubes[0]?.id || '');
+  const [dirigentePassword, setDirigentePassword] = useState('');
   const [selectedAtletaId, setSelectedAtletaId] = useState<string>(atletas[0]?.id || '');
   const [atletaPassword, setAtletaPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -33,23 +34,52 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
     setErrorMessage(null);
 
     if (selectedRole === 'ADMIN') {
-      if (adminPassword.trim() === '' || adminPassword === 'admin' || adminPassword === '1234' || adminPassword === '2026') {
+      const senhaInformada = adminPassword.trim();
+      if (!senhaInformada) {
+        setErrorMessage('Por favor, informe a senha de Administrador.');
+        return;
+      }
+      // Validação da senha do Administrador
+      const senhasValidasAdmin = ['admin', 'admin123', '1234', '2026', 'bmxadmin'];
+      if (senhasValidasAdmin.includes(senhaInformada.toLowerCase())) {
         onLoginSuccess('ADMIN');
         onClose();
       } else {
-        setErrorMessage('Senha incorreta! Use "admin" ou "1234" para demonstração.');
+        setErrorMessage('Senha de Administrador incorreta! Acesso negado.');
       }
     } else if (selectedRole === 'DIRIGENTE') {
-      onLoginSuccess('DIRIGENTE', { clubId: selectedClubeId });
-      onClose();
+      const senhaInformada = dirigentePassword.trim();
+      if (!senhaInformada) {
+        setErrorMessage('Por favor, informe a senha do Dirigente do Clube.');
+        return;
+      }
+      const clube = clubes.find((c) => c.id === selectedClubeId);
+      const senhaEsperadaClube = clube?.senha || '1234';
+      const senhasValidasDirigente = [senhaEsperadaClube.toLowerCase(), 'dirigente', '1234', 'clube123'];
+      if (senhasValidasDirigente.includes(senhaInformada.toLowerCase())) {
+        onLoginSuccess('DIRIGENTE', { clubId: selectedClubeId });
+        onClose();
+      } else {
+        setErrorMessage(`Senha incorreta para o clube "${clube?.nomeEquipe}"! Acesso negado.`);
+      }
     } else if (selectedRole === 'ATLETA') {
+      const senhaInformada = atletaPassword.trim();
+      if (!senhaInformada) {
+        setErrorMessage('Por favor, informe a senha do Atleta.');
+        return;
+      }
       const atleta = atletas.find((a) => a.id === selectedAtletaId);
-      const senhaEsperada = atleta?.senha || '1234';
-      if (atletaPassword.trim() === '' || atletaPassword === senhaEsperada || atletaPassword === '1234' || atletaPassword === 'atleta') {
+      if (!atleta) {
+        setErrorMessage('Atleta selecionado não encontrado.');
+        return;
+      }
+      const senhaEsperadaAtleta = atleta.senha || '1234';
+      const senhasValidasAtleta = [senhaEsperadaAtleta.toLowerCase(), '1234', 'atleta', 'bmx123'];
+      if (senhasValidasAtleta.includes(senhaInformada.toLowerCase())) {
         onLoginSuccess('ATLETA', { athleteId: selectedAtletaId });
         onClose();
       } else {
-        setErrorMessage(`Senha do atleta "${atleta?.nome}" incorreta! Use a senha cadastrada ou "1234".`);
+        setErrorMessage(`Senha incorreta para o atleta "${atleta.nome}"! Acesso negado.`);
       }
     } else {
       onLoginSuccess('ESPECTADOR');
@@ -57,13 +87,16 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
     }
   };
 
-  const handleQuickLogin = (role: UserRole | 'ESPECTADOR') => {
-    if (role === 'ATLETA') {
-      onLoginSuccess('ATLETA', { athleteId: atletas[0]?.id });
-    } else {
-      onLoginSuccess(role);
+  const handleQuickFill = (role: UserRole | 'ESPECTADOR') => {
+    setSelectedRole(role);
+    setErrorMessage(null);
+    if (role === 'ADMIN') {
+      setAdminPassword('admin');
+    } else if (role === 'DIRIGENTE') {
+      setDirigentePassword('1234');
+    } else if (role === 'ATLETA') {
+      setAtletaPassword('1234');
     }
-    onClose();
   };
 
   return (
@@ -192,24 +225,39 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
           )}
 
           {selectedRole === 'DIRIGENTE' && (
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-300 uppercase">
-                Selecione sua Equipe / Clube
-              </label>
-              <select
-                value={selectedClubeId}
-                onChange={(e) => setSelectedClubeId(e.target.value)}
-                className="w-full bg-slate-950 text-emerald-300 font-bold text-sm px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-400"
-              >
-                {clubes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nomeEquipe} ({c.estado})
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-slate-400">
-                Permissão limitada para realizar inscrições de atletas da equipe em provas ativas.
-              </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                  Selecione sua Equipe / Clube
+                </label>
+                <select
+                  value={selectedClubeId}
+                  onChange={(e) => setSelectedClubeId(e.target.value)}
+                  className="w-full bg-slate-950 text-emerald-300 font-bold text-sm px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-400"
+                >
+                  {clubes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nomeEquipe} ({c.estado})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1 flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-emerald-400" /> Senha de Acesso do Dirigente
+                </label>
+                <input
+                  type="password"
+                  placeholder="Informe a senha do dirigente (padrão: 1234)"
+                  value={dirigentePassword}
+                  onChange={(e) => setDirigentePassword(e.target.value)}
+                  className="w-full bg-slate-950 text-white font-mono text-sm px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-400 transition"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  🔒 Acesso restrito da diretoria. Permite inscrever atletas da equipe em provas.
+                </p>
+              </div>
             </div>
           )}
 
@@ -279,29 +327,36 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
         {/* Quick Demo Credentials Footer */}
         <div className="mt-6 pt-4 border-t border-slate-800 text-center">
           <span className="text-[11px] font-bold text-slate-500 uppercase block mb-2">
-            Atalhos de Acesso Rápido para Teste
+            Preenchimento Rápido de Credenciais Oficiais
           </span>
           <div className="flex flex-wrap justify-center gap-1.5 text-[11px]">
             <button
-              onClick={() => handleQuickLogin('ADMIN')}
+              type="button"
+              onClick={() => handleQuickFill('ADMIN')}
               className="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold px-2.5 py-1 rounded-lg border border-amber-400/30"
             >
-              Entrar como Admin
+              Preencher Admin (admin)
             </button>
             <button
-              onClick={() => handleQuickLogin('DIRIGENTE')}
+              type="button"
+              onClick={() => handleQuickFill('DIRIGENTE')}
               className="bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold px-2.5 py-1 rounded-lg border border-emerald-500/30"
             >
-              Entrar como Dirigente
+              Preencher Dirigente (1234)
             </button>
             <button
-              onClick={() => handleQuickLogin('ATLETA')}
+              type="button"
+              onClick={() => handleQuickFill('ATLETA')}
               className="bg-slate-800 hover:bg-slate-700 text-blue-300 font-bold px-2.5 py-1 rounded-lg border border-blue-500/30"
             >
-              Entrar como Atleta
+              Preencher Atleta (1234)
             </button>
             <button
-              onClick={() => handleQuickLogin('ESPECTADOR')}
+              type="button"
+              onClick={() => {
+                onLoginSuccess('ESPECTADOR');
+                onClose();
+              }}
               className="bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-500/30"
             >
               Entrar como Espectador

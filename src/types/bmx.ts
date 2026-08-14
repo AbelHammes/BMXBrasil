@@ -24,6 +24,7 @@ export interface ClubeEquipe {
   dirigenteNome: string;
   dirigenteEmail: string;
   dirigenteCpf: string;
+  senha?: string; // Senha de acesso do dirigente da equipe
 }
 
 export interface Atleta {

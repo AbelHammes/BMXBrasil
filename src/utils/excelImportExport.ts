@@ -1,7 +1,13 @@
 import React from 'react';
 import * as XLSX from 'xlsx';
 import { Atleta, Categoria, ClubeEquipe, Inscricao, ProvaEvento, StatusPagamento } from '../types/bmx';
-import { calcularIdadeUCI, encontrarCategoriaCompavel, formatarCPF, validarCPF } from './uciBmEngine';
+import {
+  calcularIdadeUCI,
+  encontrarCategoriaCompavel,
+  formatarCPF,
+  validarCPF,
+  validarInscricaoAtletaRegraAro,
+} from './uciBmEngine';
 
 export interface LinhaImportadaPreview {
   idTemp: string;
@@ -476,17 +482,33 @@ export async function processarPlanilhaExcelInscritos(
       totalNovosAtletas++;
     }
 
-    // 11. Check if already enrolled in this exact race
-    const jaInscritoNestaProva = inscricoesExistentes.some(
-      (ins) =>
-        ins.provaId === provaAlvo.id &&
-        (ins.atletaCpf.replace(/\D/g, '') === cpfFormatado.replace(/\D/g, '') ||
-          (atletaExistente && ins.atletaId === atletaExistente.id))
+    // 11. Validar regras de inscrição BMX (Aro 20 vs Cruiser 24 e duplicidade na mesma categoria)
+    const validacaoRegra = validarInscricaoAtletaRegraAro(
+      atletaExistente?.id || '',
+      cpfFormatado,
+      provaAlvo.id,
+      categoriaResolvidaId,
+      todasCategorias,
+      inscricoesExistentes
     );
 
-    if (jaInscritoNestaProva) {
-      mensagens.push(`Atenção: Já consta uma inscrição deste atleta nesta prova (${provaAlvo.nome})`);
-      if (statusLinha !== 'ERRO') statusLinha = 'AVISO';
+    const jaInscritoNestaProva = !validacaoRegra.valido;
+
+    if (!validacaoRegra.valido) {
+      mensagens.push(`Regra BMX: ${validacaoRegra.erro}`);
+      statusLinha = 'ERRO';
+    } else {
+      // Verificar se é uma 2ª inscrição permitida (Aro diferente)
+      const inscricoesAtletaNestaProva = inscricoesExistentes.filter(
+        (ins) =>
+          ins.provaId === provaAlvo.id &&
+          (ins.atletaCpf.replace(/\D/g, '') === cpfFormatado.replace(/\D/g, '') ||
+            (atletaExistente && ins.atletaId === atletaExistente.id))
+      );
+      if (inscricoesAtletaNestaProva.length === 1) {
+        mensagens.push(`Segunda inscrição permitida em modalidade oposta (${tipoBike})`);
+        if (statusLinha !== 'ERRO') statusLinha = 'OK';
+      }
     }
 
     const itemPreview: LinhaImportadaPreview = {
@@ -624,13 +646,16 @@ export function aplicarImportacaoInscritos(
       criadosAtletas++;
     }
 
-    // Check if already registered in this race
-    const jaInscrito = novasInscricoesList.some(
-      (i) => i.provaId === provaAlvo.id && i.atletaId === atletaId
+    // Check if already registered in the exact same category for this race
+    const jaInscritoMesmaCategoria = novasInscricoesList.some(
+      (i) =>
+        i.provaId === provaAlvo.id &&
+        (i.atletaId === atletaId || i.atletaCpf === linha.cpf) &&
+        i.categoriaId === linha.categoriaResolvidaId
     );
 
-    if (jaInscrito && options.ignorarDuplicatas) {
-      // Skip duplicating registration
+    if (jaInscritoMesmaCategoria && options.ignorarDuplicatas) {
+      // Skip duplicating registration in same category
       return;
     }
 

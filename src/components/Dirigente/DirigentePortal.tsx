@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Atleta, Categoria, ClubeEquipe, Inscricao, ProvaEvento } from '../../types/bmx';
-import { encontrarCategoriaCompavel, formatarCPF, validarCPF } from '../../utils/uciBmEngine';
+import {
+  encontrarCategoriaCompavel,
+  formatarCPF,
+  validarCPF,
+  validarInscricaoAtletaRegraAro,
+} from '../../utils/uciBmEngine';
 import {
   ShieldAlert,
   Users,
@@ -11,12 +16,9 @@ import {
   UserCheck,
   CheckCircle2,
   AlertTriangle,
-  Upload,
-  FileSpreadsheet,
-  Download,
+  Bike,
+  Zap,
 } from 'lucide-react';
-import { ModalImportarInscritosExcel } from '../Admin/ModalImportarInscritosExcel';
-import { baixarPlanilhaModeloBMX } from '../../utils/excelImportExport';
 
 interface DirigentePortalProps {
   clubes: ClubeEquipe[];
@@ -42,10 +44,12 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
   // Default to first club (or allow switching)
   const [clubeAtivoId, setClubeAtivoId] = useState<string>(clubes[0]?.id || '');
   const [modalNovoAtleta, setModalNovoAtleta] = useState(false);
-  const [modalExcelOpen, setModalExcelOpen] = useState(false);
-  const [modalInscreverAtletas, setModalInscreverAtletas] = useState(false);
+  const [modalInscricaoAtleta, setModalInscricaoAtleta] = useState<Atleta | null>(null);
   const [provaInscricaoId, setProvaInscricaoId] = useState<string>(provas[0]?.id || '');
+  const [categoriaInscricaoId, setCategoriaInscricaoId] = useState<string>(categorias[0]?.id || '');
+  const [numeroPlacaCustom, setNumeroPlacaCustom] = useState<string>('');
   const [mensagem, setMensagem] = useState<string | null>(null);
+  const [erroInscricao, setErroInscricao] = useState<string | null>(null);
 
   // Form states for new athlete
   const [nome, setNome] = useState('');
@@ -114,32 +118,70 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
     setCpf('');
   };
 
-  // Handle Bulk Registration of Team Athletes in an Event
-  const handleInscreverAtletasEmMassa = (atletaId: string) => {
-    const atleta = atletas.find((a) => a.id === atletaId);
-    if (!atleta) return;
+  // Open Inscription Modal for selected Athlete
+  const handleAbrirModalInscricao = (atleta: Atleta) => {
+    setModalInscricaoAtleta(atleta);
+    setErroInscricao(null);
+    setNumeroPlacaCustom(Math.floor(10 + Math.random() * 89).toString());
 
-    // Check if already registered
-    const jaInscrito = inscricoes.some(
-      (i) => i.provaId === provaInscricaoId && i.atletaId === atletaId
+    // Check if athlete already has an inscription in this event
+    const inscricoesAtleta = inscricoes.filter(
+      (i) => i.provaId === provaInscricaoId && (i.atletaId === atleta.id || i.atletaCpf === atleta.cpf)
     );
 
-    if (jaInscrito) {
-      alert(`Atleta ${atleta.nome} já está inscrito nesta prova!`);
+    if (inscricoesAtleta.length > 0) {
+      // Find category of opposite wheel type
+      const primeiraInscricao = inscricoesAtleta[0];
+      const primeiraCat = categorias.find((c) => c.id === primeiraInscricao.categoriaId);
+      const isAro20 = primeiraCat?.tipoBike === 'Aro 20"' || (!primeiraCat?.tipoBike?.includes('24') && !primeiraCat?.nome?.toLowerCase().includes('cruiser'));
+      const catOposta = categorias.find((c) => isAro20 ? (c.tipoBike?.includes('24') || c.nome.toLowerCase().includes('cruiser')) : (c.tipoBike === 'Aro 20"' || !c.nome.toLowerCase().includes('cruiser')));
+      if (catOposta) {
+        setCategoriaInscricaoId(catOposta.id);
+        return;
+      }
+    }
+
+    setCategoriaInscricaoId(atleta.categoriaId || categorias[0]?.id || '');
+  };
+
+  const handleConfirmarInscricaoAtleta = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErroInscricao(null);
+
+    if (!modalInscricaoAtleta) return;
+
+    const catSelecionada = categorias.find((c) => c.id === categoriaInscricaoId);
+    if (!catSelecionada) {
+      setErroInscricao('Selecione uma categoria válida.');
+      return;
+    }
+
+    // Validar regras de inscrição BMX (Aro 20 vs Cruiser 24 e duplicidade de categoria)
+    const validacaoRegra = validarInscricaoAtletaRegraAro(
+      modalInscricaoAtleta.id,
+      modalInscricaoAtleta.cpf,
+      provaInscricaoId,
+      catSelecionada.id,
+      categorias,
+      inscricoes
+    );
+
+    if (!validacaoRegra.valido) {
+      setErroInscricao(validacaoRegra.erro || 'Inscrição não permitida pelo regulamento de BMX.');
       return;
     }
 
     const novaInscricao: Inscricao = {
       id: `ins-${Date.now()}`,
       provaId: provaInscricaoId,
-      atletaId: atleta.id,
-      atletaNome: atleta.nome,
-      atletaCpf: atleta.cpf,
-      clubeNome: atleta.clubeNome,
-      categoriaId: atleta.categoriaId,
-      categoriaNome: atleta.categoriaNome,
-      numeroPlaca: `${Math.floor(10 + Math.random() * 89)}`,
-      transponderId: atleta.transponderId,
+      atletaId: modalInscricaoAtleta.id,
+      atletaNome: modalInscricaoAtleta.nome,
+      atletaCpf: modalInscricaoAtleta.cpf,
+      clubeNome: modalInscricaoAtleta.clubeNome,
+      categoriaId: catSelecionada.id,
+      categoriaNome: catSelecionada.nome,
+      numeroPlaca: numeroPlacaCustom.trim() || `${Math.floor(10 + Math.random() * 89)}`,
+      transponderId: modalInscricaoAtleta.transponderId,
       statusPagamento: 'Confirmada',
       validadoTransponder: false,
       chipDevolvido: false,
@@ -147,8 +189,9 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
     };
 
     setInscricoes((prev) => [novaInscricao, ...prev]);
-    setMensagem(`✅ ${atleta.nome} inscrito com sucesso na prova!`);
-    setTimeout(() => setMensagem(null), 3000);
+    setMensagem(`✅ ${modalInscricaoAtleta.nome} inscrito na categoria ${catSelecionada.nome} com sucesso!`);
+    setModalInscricaoAtleta(null);
+    setTimeout(() => setMensagem(null), 4000);
   };
 
   return (
@@ -185,24 +228,6 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
               </option>
             ))}
           </select>
-
-          <button
-            onClick={() => baixarPlanilhaModeloBMX(categorias, clubes)}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold px-3 py-2 rounded-xl border border-slate-700 shadow transition flex items-center gap-1.5 text-xs shrink-0"
-            title="Baixar modelo Excel para preenchimento de inscrições da equipe"
-          >
-            <Download className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Modelo Excel</span>
-          </button>
-
-          <button
-            onClick={() => setModalExcelOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-2.5 rounded-xl shadow transition flex items-center gap-1.5 text-xs shrink-0"
-            title="Importar planilha de atletas do clube e inscrever em lote"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-            <span>Importar Excel</span>
-          </button>
 
           <button
             onClick={() => setModalNovoAtleta(true)}
@@ -318,10 +343,10 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
                   </td>
                   <td className="py-3 px-3 text-center">
                     <button
-                      onClick={() => handleInscreverAtletasEmMassa(a.id)}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-1.5 rounded-lg text-xs transition shadow"
+                      onClick={() => handleAbrirModalInscricao(a)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-1.5 rounded-lg text-xs transition shadow flex items-center gap-1 mx-auto"
                     >
-                      + Inscrever na Prova
+                      <Plus className="w-3.5 h-3.5" /> Inscrever na Prova
                     </button>
                   </td>
                 </tr>
@@ -330,6 +355,145 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Modal Inscrever Atleta na Prova */}
+      {modalInscricaoAtleta && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-scale-up space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <span className="text-[10px] font-mono text-emerald-600 uppercase font-black tracking-wider block">
+                  INSCRIÇÃO OFICIAL BMX
+                </span>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-emerald-600" />
+                  {modalInscricaoAtleta.nome}
+                </h3>
+              </div>
+              <button
+                onClick={() => setModalInscricaoAtleta(null)}
+                className="text-slate-400 hover:text-slate-700 font-bold text-lg p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Inscrições ativas do atleta nesta prova */}
+            {(() => {
+              const inscricoesAtuais = inscricoes.filter(
+                (i) => i.provaId === provaInscricaoId && (i.atletaId === modalInscricaoAtleta.id || i.atletaCpf === modalInscricaoAtleta.cpf)
+              );
+              if (inscricoesAtuais.length === 1) {
+                return (
+                  <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-xl text-xs space-y-1">
+                    <div className="font-bold flex items-center gap-1 text-blue-900">
+                      <Bike className="w-4 h-4 text-blue-600" /> 1ª Inscrição Ativa: {inscricoesAtuais[0].categoriaNome}
+                    </div>
+                    <p className="text-[11px] text-blue-700">
+                      Regra Oficial BMX: Uma 2ª inscrição é permitida se for em modalidade de aro oposto (Aro 20" ⇄ Cruiser 24").
+                    </p>
+                  </div>
+                );
+              }
+              if (inscricoesAtuais.length >= 2) {
+                return (
+                  <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-xl text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>Este atleta já possui o limite máximo de 2 inscrições nesta mesma prova.</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            <form onSubmit={handleConfirmarInscricaoAtleta} className="space-y-4 text-xs font-bold">
+              <div>
+                <label className="block text-slate-700 mb-1">Selecione a Prova / Etapa *</label>
+                <select
+                  value={provaInscricaoId}
+                  onChange={(e) => {
+                    setProvaInscricaoId(e.target.value);
+                    setErroInscricao(null);
+                  }}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-slate-900 text-xs font-bold focus:outline-none focus:border-emerald-500"
+                >
+                  {provas.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} ({p.cidadeEstado})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Categoria de Competição *</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Aro 20" ou Cruiser 24"</span>
+                </label>
+                <select
+                  value={categoriaInscricaoId}
+                  onChange={(e) => {
+                    setCategoriaInscricaoId(e.target.value);
+                    setErroInscricao(null);
+                  }}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-emerald-800 text-xs font-bold focus:outline-none focus:border-emerald-500"
+                >
+                  {categorias.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome} ({c.tipoBike})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 mb-1">Número da Placa *</label>
+                  <input
+                    type="text"
+                    required
+                    value={numeroPlacaCustom}
+                    onChange={(e) => setNumeroPlacaCustom(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 mb-1">Transponder ID</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={modalInscricaoAtleta.transponderId}
+                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-slate-500 font-mono text-xs cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {erroInscricao && (
+                <div className="bg-red-50 border border-red-300 text-red-700 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  {erroInscricao}
+                </div>
+              )}
+
+              <div className="pt-3 flex justify-end gap-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setModalInscricaoAtleta(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black shadow-md flex items-center gap-1.5"
+                >
+                  <UserCheck className="w-4 h-4" /> Confirmar Inscrição
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Add Athlete */}
       {modalNovoAtleta && (
@@ -457,20 +621,6 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
           </div>
         </div>
       )}
-
-      {/* Bulk Excel Import Modal */}
-      <ModalImportarInscritosExcel
-        isOpen={modalExcelOpen}
-        onClose={() => setModalExcelOpen(false)}
-        provas={provas}
-        categorias={categorias}
-        clubes={clubes}
-        atletas={atletas}
-        setAtletas={setAtletas}
-        inscricoes={inscricoes}
-        setInscricoes={setInscricoes}
-        initialProvaId={provas[0]?.id || undefined}
-      />
     </div>
   );
 };

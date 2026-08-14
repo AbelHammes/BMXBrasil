@@ -159,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </optgroup>
               {currentRole === 'ADMIN' && (
                 <optgroup label="Painel do Administrador">
-                  <option value="motor-provas">⚡ Motor de Provas (SQORZ)</option>
+                  <option value="motor-provas">🏁 Gerenciamento da Prova</option>
                   <option value="transponder-booth">📡 Transponders</option>
                   <option value="provas">📅 Calendário de Provas</option>
                   <option value="inscricoes">👤 Gestão de Inscritos</option>
@@ -227,8 +227,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-slate-300 hover:bg-slate-800/80'
                   }`}
                 >
-                  <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>Motor SQORZ</span>
+                  <Flag className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Gerenciamento da Prova</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('transponder-booth')}

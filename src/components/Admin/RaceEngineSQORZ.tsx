@@ -857,7 +857,7 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="bg-amber-400 text-slate-950 text-xs font-black px-2.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5" /> MOTOR DE PROVAS / UCI
+              <Zap className="w-3.5 h-3.5" /> GERENCIAMENTO DA PROVA
             </span>
             <span className="bg-emerald-500/20 text-emerald-300 text-xs border border-emerald-500/30 px-2 py-0.5 rounded font-mono">
               Apuração Instantânea

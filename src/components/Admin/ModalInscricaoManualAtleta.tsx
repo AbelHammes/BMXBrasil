@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Atleta, Categoria, ClubeEquipe, Inscricao, ProvaEvento, StatusPagamento } from '../../types/bmx';
+import { validarInscricaoAtletaRegraAro } from '../../utils/uciBmEngine';
 import {
   UserPlus,
   UserCheck,
@@ -125,16 +126,19 @@ export const ModalInscricaoManualAtleta: React.FC<ModalInscricaoManualAtletaProp
       return;
     }
 
-    // Check duplicate inscription in same event and category
-    const jaInscrito = inscricoes.find(
-      (i) => i.provaId === selectedProvaId && i.atletaId === selectedAtletaId
+    // Validar regras oficiais de inscrição BMX (Aro 20 vs Cruiser 24 e duplicidade de categoria)
+    const validacaoRegra = validarInscricaoAtletaRegraAro(
+      atleta.id,
+      atleta.cpf,
+      selectedProvaId,
+      categoria.id,
+      categorias,
+      inscricoes
     );
 
-    if (jaInscrito) {
-      const confirmar = confirm(
-        `O atleta ${atleta.nome} já possui inscrição na prova "${prova.nome}" (Categoria: ${jaInscrito.categoriaNome}). Deseja adicionar uma nova inscrição nesta categoria diferente?`
-      );
-      if (!confirmar) return;
+    if (!validacaoRegra.valido) {
+      setMensagemErro(validacaoRegra.erro || 'Inscrição bloqueada pelas regras oficiais de BMX.');
+      return;
     }
 
     const novaInscricao: Inscricao = {
@@ -186,6 +190,21 @@ export const ModalInscricaoManualAtleta: React.FC<ModalInscricaoManualAtletaProp
 
     if (!categoria) {
       setMensagemErro('Selecione a categoria de competição.');
+      return;
+    }
+
+    // Validar regras de inscrição BMX
+    const validacaoRegra = validarInscricaoAtletaRegraAro(
+      '',
+      novoCpf.trim(),
+      selectedProvaId,
+      categoria.id,
+      categorias,
+      inscricoes
+    );
+
+    if (!validacaoRegra.valido) {
+      setMensagemErro(validacaoRegra.erro || 'Inscrição bloqueada pelas regras oficiais de BMX.');
       return;
     }
 
