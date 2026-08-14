@@ -142,206 +142,252 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Navigation Sub-Menu Bar */}
-      <nav className="bg-slate-950 border-t border-slate-800 px-2 sm:px-4">
-        <div className="max-w-7xl mx-auto flex items-center overflow-x-auto space-x-1 py-1 scrollbar-none text-[11px] sm:text-xs">
-          {/* Spectator / Public links always available */}
-          <button
-            onClick={() => setActiveTab('espectadores')}
-            className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-              activeTab === 'espectadores'
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5 text-indigo-400" />
-            Espectadores <span className="hidden sm:inline">(Inscritos e Resultados)</span>
-          </button>
+      {/* Navigation Sub-Menu Bar - Responsive & Adaptive */}
+      <nav className="bg-slate-950 border-t border-slate-800 px-2 sm:px-4 py-1.5 shadow-inner">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2">
+          {/* Mobile Quick Dropdown Selector for small screens */}
+          <div className="md:hidden flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+            <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider pl-1">Aba:</span>
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+              className="flex-1 bg-slate-950 text-white text-xs font-bold rounded-lg px-2 py-1.5 border border-slate-700 focus:outline-none focus:border-amber-400"
+            >
+              <optgroup label="Público / Ao Vivo">
+                <option value="espectadores">👀 Espectadores (Resultados)</option>
+                <option value="placar-ao-vivo">📺 Placar Ao Vivo</option>
+              </optgroup>
+              {currentRole === 'ADMIN' && (
+                <optgroup label="Painel do Administrador">
+                  <option value="motor-provas">⚡ Motor de Provas (SQORZ)</option>
+                  <option value="transponder-booth">📡 Transponders</option>
+                  <option value="provas">📅 Calendário de Provas</option>
+                  <option value="inscricoes">👤 Gestão de Inscritos</option>
+                  <option value="clubes">👥 Equipes / Clubes</option>
+                  <option value="rankings">🏆 Rankings Nacionais</option>
+                  <option value="categorias">📑 Categorias</option>
+                  <option value="backups-integridade">💾 Backups & Integridade</option>
+                </optgroup>
+              )}
+              {currentRole === 'DIRIGENTE' && (
+                <optgroup label="Dirigente de Clube">
+                  <option value="equipe-dirigente">🛡️ Inscrição da Minha Equipe</option>
+                  <option value="inscrever-equipe">📋 Gerenciar Inscrições</option>
+                  <option value="provas">📅 Calendário de Provas</option>
+                </optgroup>
+              )}
+              {currentRole === 'ATLETA' && (
+                <optgroup label="Painel do Atleta">
+                  <option value="painel-atleta">👤 Meu Painel & Chamadas</option>
+                  <option value="provas">🏁 Minhas Inscrições em Provas</option>
+                  <option value="rankings">🏆 Pontuação de Ranking</option>
+                </optgroup>
+              )}
+            </select>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('placar-ao-vivo')}
-            className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-              activeTab === 'placar-ao-vivo'
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <Volume2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-            <span className="hidden sm:inline">TV / Placar Ao Vivo</span>
-            <span className="sm:hidden">Ao Vivo</span>
-          </button>
+          {/* Full Tab Strip - Fully visible and wraps adaptively */}
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs">
+            {/* Public & Spectator Links */}
+            <button
+              onClick={() => setActiveTab('espectadores')}
+              className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                activeTab === 'espectadores'
+                  ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-400/60 shadow-sm'
+                  : 'text-slate-300 hover:bg-slate-800/80'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span>Espectadores</span>
+            </button>
 
-          {/* ADMIN Menu Items */}
-          {currentRole === 'ADMIN' && (
-            <>
-              <button
-                onClick={() => setActiveTab('motor-provas')}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'motor-provas'
-                    ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                Motor de Provas (SQORZ)
-              </button>
-              <button
-                onClick={() => setActiveTab('transponder-booth')}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'transponder-booth'
-                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <RadioTower className="w-3.5 h-3.5 text-blue-400" />
-                Transponders
-              </button>
-              <button
-                onClick={() => setActiveTab('provas')}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'provas'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                Provas
-              </button>
-              <button
-                onClick={() => setActiveTab('inscricoes')}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'inscricoes'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Inscritos
-              </button>
-              <button
-                onClick={() => setActiveTab('clubes')}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'clubes'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 text-emerald-400" />
-                Equipes
-              </button>
-              <button
-                onClick={() => setActiveTab('rankings')}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'rankings'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Award className="w-3.5 h-3.5 text-emerald-400" />
-                Rankings
-              </button>
-              <button
-                onClick={() => setActiveTab('categorias')}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'categorias'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                Categorias
-              </button>
-              <button
-                onClick={() => setActiveTab('backups-integridade')}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'backups-integridade'
-                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-                Backups
-              </button>
-            </>
-          )}
+            <button
+              onClick={() => setActiveTab('placar-ao-vivo')}
+              className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                activeTab === 'placar-ao-vivo'
+                  ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/60 shadow-sm'
+                  : 'text-slate-300 hover:bg-slate-800/80'
+              }`}
+            >
+              <Volume2 className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+              <span>Placar Ao Vivo</span>
+            </button>
 
-          {/* DIRIGENTE Menu - Permission Restricted ONLY to Team Inscriptions & Race Calendar */}
-          {currentRole === 'DIRIGENTE' && (
-            <>
-              <button
-                onClick={() => setActiveTab('equipe-dirigente')}
-                className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'equipe-dirigente'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />
-                Inscrição da Minha Equipe
-              </button>
-              <button
-                onClick={() => setActiveTab('inscrever-equipe')}
-                className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'inscrever-equipe'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <UserCheck className="w-3.5 h-3.5 text-amber-400" />
-                Gerenciar Inscrições em Provas
-              </button>
-              <button
-                onClick={() => setActiveTab('provas')}
-                className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'provas'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                Calendário de Provas
-              </button>
-            </>
-          )}
+            {/* Separator */}
+            <span className="hidden sm:inline-block w-px h-4 bg-slate-800 my-auto"></span>
 
-          {/* ATLETA Menu - Permission Restricted ONLY to Athlete Inscriptions & Rankings */}
-          {currentRole === 'ATLETA' && (
-            <>
-              <button
-                onClick={() => setActiveTab('painel-atleta')}
-                className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'painel-atleta'
-                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <User className="w-3.5 h-3.5 text-blue-400" />
-                Meu Painel
-              </button>
-              <button
-                onClick={() => setActiveTab('provas')}
-                className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'provas'
-                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Flag className="w-3.5 h-3.5 text-blue-400" />
-                Minhas Inscrições em Provas
-              </button>
-              <button
-                onClick={() => setActiveTab('rankings')}
-                className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
-                  activeTab === 'rankings'
-                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Award className="w-3.5 h-3.5 text-amber-400" />
-                Pontuação de Ranking
-              </button>
-            </>
-          )}
+            {/* ADMIN Menu Items */}
+            {currentRole === 'ADMIN' && (
+              <>
+                <button
+                  onClick={() => setActiveTab('motor-provas')}
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                    activeTab === 'motor-provas'
+                      ? 'bg-amber-400/20 text-amber-300 border border-amber-400/60 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Motor SQORZ</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('transponder-booth')}
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                    activeTab === 'transponder-booth'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-400/60 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <RadioTower className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span>Transponders</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('provas')}
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                    activeTab === 'provas'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Provas</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('inscricoes')}
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                    activeTab === 'inscricoes'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Inscritos</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('clubes')}
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                    activeTab === 'clubes'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Equipes</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('rankings')}
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                    activeTab === 'rankings'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/60 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Rankings</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('categorias')}
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                    activeTab === 'categorias'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/60 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span>Categorias</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('backups-integridade')}
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1 transition ${
+                    activeTab === 'backups-integridade'
+                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/60 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span>Backups</span>
+                </button>
+              </>
+            )}
+
+            {/* DIRIGENTE Menu */}
+            {currentRole === 'DIRIGENTE' && (
+              <>
+                <button
+                  onClick={() => setActiveTab('equipe-dirigente')}
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                    activeTab === 'equipe-dirigente'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Minha Equipe</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('inscrever-equipe')}
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                    activeTab === 'inscrever-equipe'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Inscrições da Equipe</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('provas')}
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                    activeTab === 'provas'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Calendário de Provas</span>
+                </button>
+              </>
+            )}
+
+            {/* ATLETA Menu */}
+            {currentRole === 'ATLETA' && (
+              <>
+                <button
+                  onClick={() => setActiveTab('painel-atleta')}
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                    activeTab === 'painel-atleta'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                      : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Meu Painel</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('provas')}
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                    activeTab === 'provas'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                      : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Flag className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Inscrições em Provas</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('rankings')}
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                    activeTab === 'rankings'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                      : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Ranking Nacional</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </nav>
     </header>

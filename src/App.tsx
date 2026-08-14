@@ -92,6 +92,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : TRANSPONDER_LOGS_DEMO;
   });
 
+  const [authenticatedAthleteId, setAuthenticatedAthleteId] = useState<string | null>(() => {
+    return localStorage.getItem('bmx_auth_athlete_id') || null;
+  });
+
   // LocalStorage Persist Effect
   useEffect(() => {
     localStorage.setItem('bmx_categorias', JSON.stringify(categorias));
@@ -102,15 +106,27 @@ export default function App() {
     localStorage.setItem('bmx_inscricoes', JSON.stringify(inscricoes));
     localStorage.setItem('bmx_baterias', JSON.stringify(baterias));
     localStorage.setItem('bmx_transponder_logs', JSON.stringify(transponderLogs));
-  }, [categorias, clubes, atletas, rankings, provas, inscricoes, baterias, transponderLogs]);
+    if (authenticatedAthleteId) {
+      localStorage.setItem('bmx_auth_athlete_id', authenticatedAthleteId);
+    } else {
+      localStorage.removeItem('bmx_auth_athlete_id');
+    }
+  }, [categorias, clubes, atletas, rankings, provas, inscricoes, baterias, transponderLogs, authenticatedAthleteId]);
 
   // Handle Login Role Success
-  const handleLoginSuccess = (role: UserRole | 'ESPECTADOR') => {
+  const handleLoginSuccess = (
+    role: UserRole | 'ESPECTADOR',
+    details?: { clubId?: string; athleteId?: string }
+  ) => {
     setCurrentRole(role);
     if (role === 'ADMIN') setActiveTab('motor-provas');
     else if (role === 'DIRIGENTE') setActiveTab('equipe-dirigente');
-    else if (role === 'ATLETA') setActiveTab('painel-atleta');
-    else setActiveTab('espectadores');
+    else if (role === 'ATLETA') {
+      if (details?.athleteId) {
+        setAuthenticatedAthleteId(details.athleteId);
+      }
+      setActiveTab('painel-atleta');
+    } else setActiveTab('espectadores');
   };
 
   return (
@@ -140,8 +156,10 @@ export default function App() {
         {currentRole === 'ADMIN' && activeTab === 'motor-provas' && (
           <RaceEngineSQORZ
             provas={provas}
+            setProvas={setProvas}
             categorias={categorias}
             inscricoes={inscricoes}
+            setInscricoes={setInscricoes}
             baterias={baterias}
             setBaterias={setBaterias}
           />
@@ -171,6 +189,9 @@ export default function App() {
             setInscricoes={setInscricoes}
             provas={provas}
             categorias={categorias}
+            atletas={atletas}
+            setAtletas={setAtletas}
+            clubes={clubes}
           />
         )}
 
@@ -238,6 +259,15 @@ export default function App() {
             baterias={baterias}
             inscricoes={inscricoes}
             rankings={rankings}
+            authenticatedAthleteId={authenticatedAthleteId}
+            onLogoutAthlete={() => {
+              setAuthenticatedAthleteId(null);
+              localStorage.removeItem('bmx_auth_athlete_id');
+            }}
+            onAthleteLoginSuccess={(id) => {
+              setAuthenticatedAthleteId(id);
+              localStorage.setItem('bmx_auth_athlete_id', id);
+            }}
           />
         )}
 

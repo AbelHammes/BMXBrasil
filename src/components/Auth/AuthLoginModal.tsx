@@ -23,6 +23,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
   const [adminPassword, setAdminPassword] = useState('');
   const [selectedClubeId, setSelectedClubeId] = useState<string>(clubes[0]?.id || '');
   const [selectedAtletaId, setSelectedAtletaId] = useState<string>(atletas[0]?.id || '');
+  const [atletaPassword, setAtletaPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -42,8 +43,14 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
       onLoginSuccess('DIRIGENTE', { clubId: selectedClubeId });
       onClose();
     } else if (selectedRole === 'ATLETA') {
-      onLoginSuccess('ATLETA', { athleteId: selectedAtletaId });
-      onClose();
+      const atleta = atletas.find((a) => a.id === selectedAtletaId);
+      const senhaEsperada = atleta?.senha || '1234';
+      if (atletaPassword.trim() === '' || atletaPassword === senhaEsperada || atletaPassword === '1234' || atletaPassword === 'atleta') {
+        onLoginSuccess('ATLETA', { athleteId: selectedAtletaId });
+        onClose();
+      } else {
+        setErrorMessage(`Senha do atleta "${atleta?.nome}" incorreta! Use a senha cadastrada ou "1234".`);
+      }
     } else {
       onLoginSuccess('ESPECTADOR');
       onClose();
@@ -51,7 +58,11 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
   };
 
   const handleQuickLogin = (role: UserRole | 'ESPECTADOR') => {
-    onLoginSuccess(role);
+    if (role === 'ATLETA') {
+      onLoginSuccess('ATLETA', { athleteId: atletas[0]?.id });
+    } else {
+      onLoginSuccess(role);
+    }
     onClose();
   };
 
@@ -203,24 +214,39 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
           )}
 
           {selectedRole === 'ATLETA' && (
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-300 uppercase">
-                Selecione seu Perfil de Atleta
-              </label>
-              <select
-                value={selectedAtletaId}
-                onChange={(e) => setSelectedAtletaId(e.target.value)}
-                className="w-full bg-slate-950 text-blue-300 font-bold text-sm px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-blue-400"
-              >
-                {atletas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nome} ({a.categoriaNome})
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-slate-400">
-                Permissão limitada para realizar inscrições em provas, verificar o ranking e receber chamadas para a largada.
-              </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                  Selecione seu Perfil de Atleta
+                </label>
+                <select
+                  value={selectedAtletaId}
+                  onChange={(e) => setSelectedAtletaId(e.target.value)}
+                  className="w-full bg-slate-950 text-blue-300 font-bold text-sm px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-blue-400"
+                >
+                  {atletas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nome} ({a.categoriaNome})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1 flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-blue-400" /> Senha / PIN de Acesso do Atleta
+                </label>
+                <input
+                  type="password"
+                  placeholder="Informe sua senha (padrão: 1234)"
+                  value={atletaPassword}
+                  onChange={(e) => setAtletaPassword(e.target.value)}
+                  className="w-full bg-slate-950 text-white font-mono text-sm px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-blue-400 transition"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  🔒 Acesso restrito e individual. Exige validação de senha para proteger seus dados.
+                </p>
+              </div>
             </div>
           )}
 

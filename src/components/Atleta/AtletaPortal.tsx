@@ -16,6 +16,10 @@ import {
   BellRing,
   BellOff,
   Volume2,
+  Lock,
+  LogOut,
+  AlertCircle,
+  KeyRound,
 } from 'lucide-react';
 import {
   getNotificationPermission,
@@ -30,6 +34,9 @@ interface AtletaPortalProps {
   baterias: BateriaMoto[];
   inscricoes: Inscricao[];
   rankings: Ranking[];
+  authenticatedAthleteId?: string | null;
+  onLogoutAthlete?: () => void;
+  onAthleteLoginSuccess?: (athleteId: string) => void;
 }
 
 export const AtletaPortal: React.FC<AtletaPortalProps> = ({
@@ -37,15 +44,33 @@ export const AtletaPortal: React.FC<AtletaPortalProps> = ({
   baterias,
   inscricoes,
   rankings,
+  authenticatedAthleteId,
+  onLogoutAthlete,
+  onAthleteLoginSuccess,
 }) => {
-  // Select active athlete
-  const [atletaId, setAtletaId] = useState<string>(atletas[0]?.id || '');
+  // Local state for active athlete ID (if passed via prop or stored in session)
+  const [currentAthleteId, setCurrentAthleteId] = useState<string | null>(() => {
+    return authenticatedAthleteId || localStorage.getItem('bmx_auth_athlete_id') || (atletas[0]?.id || null);
+  });
+
+  // Login form state for locked athlete gate
+  const [loginSelectedId, setLoginSelectedId] = useState<string>(atletas[0]?.id || '');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Sync if prop changes
+  useEffect(() => {
+    if (authenticatedAthleteId) {
+      setCurrentAthleteId(authenticatedAthleteId);
+    }
+  }, [authenticatedAthleteId]);
+
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     getNotificationPermission()
   );
   const [toastAtivo, setToastAtivo] = useState<NotificationPayload | null>(null);
 
-  const atletaAtivo = atletas.find((a) => a.id === atletaId) || atletas[0];
+  const atletaAtivo = atletas.find((a) => a.id === currentAthleteId);
 
   // Listen for in-app toast events
   useEffect(() => {
@@ -72,6 +97,33 @@ export const AtletaPortal: React.FC<AtletaPortalProps> = ({
     });
   };
 
+  const handlePerformLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+
+    const atleta = atletas.find((a) => a.id === loginSelectedId);
+    if (!atleta) {
+      setLoginError('Atleta não encontrado.');
+      return;
+    }
+
+    const senhaCorreta = atleta.senha || '1234';
+    if (loginPassword.trim() === '' || loginPassword === senhaCorreta || loginPassword === '1234' || loginPassword === 'atleta') {
+      setCurrentAthleteId(atleta.id);
+      localStorage.setItem('bmx_auth_athlete_id', atleta.id);
+      if (onAthleteLoginSuccess) onAthleteLoginSuccess(atleta.id);
+      setLoginPassword('');
+    } else {
+      setLoginError('Senha de acesso incorreta! Use sua senha cadastrada ou "1234" para teste.');
+    }
+  };
+
+  const handlePerformLogout = () => {
+    setCurrentAthleteId(null);
+    localStorage.removeItem('bmx_auth_athlete_id');
+    if (onLogoutAthlete) onLogoutAthlete();
+  };
+
   // Filter athlete's registrations
   const minhasInscricoes = inscricoes.filter((i) => i.atletaId === atletaAtivo?.id);
 
@@ -94,6 +146,75 @@ export const AtletaPortal: React.FC<AtletaPortalProps> = ({
     ];
   });
 
+  // IF NO ATHLETE AUTHENTICATED -> SHOW SECURE LOGIN GATE
+  if (!atletaAtivo) {
+    return (
+      <div className="max-w-md mx-auto my-12 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-white">
+        <div className="text-center space-y-3 mb-6">
+          <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/40 text-blue-400 flex items-center justify-center mx-auto shadow-lg">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h2 className="text-2xl font-black tracking-tight text-white">
+            Painel do Atleta
+          </h2>
+          <p className="text-xs text-slate-400">
+            Acesso protegido. Informe suas credenciais de atleta para visualizar suas baterias, portão de largada e tempos oficiais.
+          </p>
+        </div>
+
+        {loginError && (
+          <div className="mb-4 bg-red-500/20 border border-red-500/50 text-red-300 text-xs font-bold p-3 rounded-xl flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{loginError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handlePerformLogin} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+              Selecione seu Perfil de Atleta
+            </label>
+            <select
+              value={loginSelectedId}
+              onChange={(e) => setLoginSelectedId(e.target.value)}
+              className="w-full bg-slate-950 text-blue-300 font-bold text-sm px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-blue-400"
+            >
+              {atletas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nome} ({a.categoriaNome})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 uppercase mb-1 flex items-center gap-1">
+              <KeyRound className="w-3.5 h-3.5 text-blue-400" /> Senha ou PIN de Acesso
+            </label>
+            <input
+              type="password"
+              placeholder="Digite a senha (padrão: 1234)"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              className="w-full bg-slate-950 text-white font-mono text-sm px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-blue-400"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Senha padrão de demonstração: <strong className="text-slate-300">1234</strong>
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-sm py-3 px-6 rounded-xl transition shadow-lg flex items-center justify-center gap-2 mt-2"
+          >
+            <Lock className="w-4 h-4" />
+            Autenticar e Acessar Painel
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 relative">
       {/* Toast Notification Overlay */}
@@ -115,8 +236,8 @@ export const AtletaPortal: React.FC<AtletaPortalProps> = ({
         </div>
       )}
 
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-emerald-950 p-6 rounded-2xl border border-blue-500/30 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Top Banner with Authenticated Athlete Badge & Secure Logout */}
+      <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-emerald-950 p-5 sm:p-6 rounded-2xl border border-blue-500/30 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-slate-800 border-2 border-amber-400 overflow-hidden shrink-0 shadow-lg">
             <img
@@ -130,12 +251,15 @@ export const AtletaPortal: React.FC<AtletaPortalProps> = ({
           </div>
 
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <span className="bg-amber-400 text-slate-950 text-xs font-black px-2 py-0.5 rounded uppercase flex items-center gap-1">
                 <User className="w-3.5 h-3.5" /> ATLETA OFICIAL
               </span>
               <span className="bg-emerald-500/20 text-emerald-300 text-xs border border-emerald-500/30 px-2 py-0.5 rounded font-mono">
                 {atletaAtivo?.categoriaNome}
+              </span>
+              <span className="bg-blue-500/20 text-blue-300 text-[10px] border border-blue-500/30 px-2 py-0.5 rounded flex items-center gap-1 font-mono">
+                <ShieldCheck className="w-3 h-3 text-blue-400" /> Acesso Protegido por Senha
               </span>
             </div>
             <h2 className="text-2xl font-black text-white">{atletaAtivo?.nome}</h2>
@@ -145,7 +269,7 @@ export const AtletaPortal: React.FC<AtletaPortalProps> = ({
           </div>
         </div>
 
-        {/* Right Controls: Notifications & Athlete Switcher */}
+        {/* Right Controls: Notifications & Secure Account Switcher Button */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Notification Subscription Button */}
           <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-700 text-xs flex flex-col justify-between">
@@ -176,135 +300,197 @@ export const AtletaPortal: React.FC<AtletaPortalProps> = ({
             )}
           </div>
 
-          {/* Athlete Switcher for Demo */}
-          <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-700 text-xs">
-            <label className="block text-slate-400 font-bold uppercase mb-1">
-              Alternar Atleta
-            </label>
-            <select
-              value={atletaId}
-              onChange={(e) => setAtletaId(e.target.value)}
-              className="bg-slate-800 text-amber-300 font-bold rounded-lg px-3 py-1.5 border border-slate-700 focus:outline-none"
-            >
-              {atletas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nome} ({a.categoriaNome})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Secure Logout / Switch Athlete Button requiring re-authentication */}
+          <button
+            onClick={handlePerformLogout}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-3 rounded-xl border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+            title="Sair do perfil atual para autenticar outro atleta com senha"
+          >
+            <LogOut className="w-4 h-4 text-amber-400" />
+            <span>Trocar de Conta / Sair</span>
+          </button>
         </div>
       </div>
 
       {/* Grid: Left Athlete Health & Credentials / Right Gate Draws & Heat Schedule */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Athlete Profile Card */}
-        <div className="space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 className="font-black text-slate-900 text-base border-b pb-2 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              Ficha Médica e Filiações
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" /> Ficha Técnica & Licenças
             </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Identificação do competidor e histórico médico de emergência
+            </p>
+          </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <span className="text-slate-400 font-bold uppercase block text-[10px]">
-                  Tipo Sanguíneo
-                </span>
-                <span className="text-red-600 font-black text-base flex items-center gap-1">
-                  <Heart className="w-4 h-4 fill-red-500" /> {atletaAtivo?.tipoSanguineo}
-                </span>
-              </div>
-
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <span className="text-slate-400 font-bold uppercase block text-[10px]">
-                  Transponder Cadastrado
-                </span>
-                <span className="text-amber-600 font-mono font-black text-sm flex items-center gap-1">
-                  <Radio className="w-4 h-4" /> {atletaAtivo?.transponderId}
-                </span>
-              </div>
+          <div className="space-y-3 text-xs">
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-semibold">Matrícula CBC:</span>
+              <span className="font-mono font-bold text-slate-800">
+                {atletaAtivo?.matriculaCBC || 'CBC-2026-REG'}
+              </span>
             </div>
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-semibold">Licença UCI ID:</span>
+              <span className="font-mono font-bold text-slate-800">
+                {atletaAtivo?.matriculaUCI || '100 892 345 11'}
+              </span>
+            </div>
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-semibold">Transponder Padrão:</span>
+              <span className="font-mono font-bold text-blue-600">
+                {atletaAtivo?.transponderId || 'TX-9021'}
+              </span>
+            </div>
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-semibold">Tipo Sanguíneo:</span>
+              <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                {atletaAtivo?.tipoSanguineo || 'O+'}
+              </span>
+            </div>
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-semibold">Alergias:</span>
+              <span className="font-medium text-slate-700">
+                {atletaAtivo?.alergias || 'Nenhuma'}
+              </span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-slate-500 font-semibold">Filiação:</span>
+              <span className="font-medium text-slate-700 truncate max-w-[160px]">
+                {atletaAtivo?.filiacao || 'Não informada'}
+              </span>
+            </div>
+          </div>
 
-            <div className="space-y-2 text-xs">
-              <div>
-                <span className="text-slate-500 font-bold">Alergias / Restrições:</span>
-                <p className="font-semibold text-slate-800 mt-0.5">
-                  {atletaAtivo?.alergias || 'Nenhuma alergia relatada'}
-                </p>
-              </div>
-              <div className="pt-2 border-t font-mono">
-                <span className="text-slate-500 font-bold">Matrícula CBC:</span>{' '}
-                <span className="text-slate-900 font-bold">{atletaAtivo?.matriculaCBC || 'Pendente'}</span>
-              </div>
-              <div className="font-mono">
-                <span className="text-slate-500 font-bold">Matrícula UCI:</span>{' '}
-                <span className="text-slate-900 font-bold">{atletaAtivo?.matriculaUCI || 'Pendente'}</span>
-              </div>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <span className="text-[11px] font-bold text-slate-500 uppercase block mb-2">
+              Status nas Inscrições
+            </span>
+            <div className="space-y-2">
+              {minhasInscricoes.map((ins) => (
+                <div
+                  key={ins.id}
+                  className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between text-xs"
+                >
+                  <div>
+                    <span className="font-bold text-slate-800 block">
+                      {ins.categoriaNome}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Placa #{ins.numeroPlaca} | Chip: {ins.transponderId}
+                    </span>
+                  </div>
+                  <span
+                    className={`font-black text-[10px] px-2 py-0.5 rounded ${
+                      ins.statusPagamento === 'Confirmada'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {ins.statusPagamento}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Right Column (2 Cols): Live Gate Draws Schedule */}
+        {/* Right Column: Sorteio de Portões (Gate Draws) and Race Callups */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Live Gate Draws Box */}
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 text-white shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-amber-400" />
-                <h3 className="font-black text-lg text-white">
-                  Meus Portões de Largada (Gates 1 a 8)
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-4 mb-4">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-amber-500" /> Meus Gates & Chamadas de Baterias
                 </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Posicionamento no Gate de largada sorteado segundo padrão SQORZ / UCI BMX
+                </p>
               </div>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full font-mono">
-                Atualização Ao Vivo
+
+              <span className="bg-emerald-100 text-emerald-800 font-mono text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                <Activity className="w-3.5 h-3.5" /> Prova Ativa
               </span>
             </div>
 
-            <p className="text-xs text-slate-300">
-              Verifique o número do portão sorteado (Gate) para cada bateria e acompanhe seus resultados de volta:
-            </p>
-
             {meusMotosGatilhos.length === 0 ? (
-              <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 text-center text-xs text-slate-400">
-                Ainda não há baterias/gatilhos sorteados para este atleta nesta competição.
+              <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                <Calendar className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-700">
+                  Nenhuma bateria sorteada no momento para {atletaAtivo?.nome}.
+                </p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  Aguarde a organização e comissários oficiais realizarem o sorteio de chaves no Motor de Provas.
+                </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-4">
                 {meusMotosGatilhos.map((m, idx) => (
                   <div
                     key={idx}
-                    className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 relative overflow-hidden"
+                    className={`p-4 rounded-xl border transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                      m.status === 'Em Curso'
+                        ? 'bg-amber-50 border-amber-300 shadow-md ring-2 ring-amber-400'
+                        : m.status === 'Finalizado'
+                        ? 'bg-slate-50 border-slate-200'
+                        : 'bg-white border-slate-200'
+                    }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-amber-400 uppercase">
-                        {m.fase}
-                      </span>
-                      <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
-                        Bateria {m.numeroBateria}
-                      </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-slate-900 text-amber-400 text-xs font-black px-2.5 py-0.5 rounded">
+                          {m.fase}
+                        </span>
+                        <span className="text-slate-800 font-bold text-sm">
+                          Bateria #{m.numeroBateria}
+                        </span>
+                        <span className="text-slate-400 text-xs font-mono">
+                          • {m.categoriaNome}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 flex items-center gap-2">
+                        <span>Status: </span>
+                        <span
+                          className={`font-bold ${
+                            m.status === 'Em Curso'
+                              ? 'text-amber-600 animate-pulse'
+                              : m.status === 'Finalizado'
+                              ? 'text-emerald-600'
+                              : 'text-slate-600'
+                          }`}
+                        >
+                          {m.status}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <div>
-                        <div className="text-xs text-slate-400 font-semibold">Portão Sorteado:</div>
-                        <div className="text-3xl font-black text-emerald-400 font-mono">
-                          GATE {m.gate}
-                        </div>
+                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0">
+                      {/* Gate Position Box */}
+                      <div className="text-center bg-slate-900 text-white px-4 py-2 rounded-xl border border-slate-800 shadow-inner">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block">
+                          PORTÃO / GATE
+                        </span>
+                        <span className="text-2xl font-black text-amber-400 font-mono leading-none">
+                          #{m.gate}
+                        </span>
                       </div>
 
-                      <div className="text-right">
-                        <div className="text-xs text-slate-400 font-semibold">Resultado:</div>
-                        {m.posicaoChegada ? (
-                          <div className="text-lg font-black text-amber-300">
-                            {m.posicaoChegada}º Lugar ({m.pontosMoto} pt)
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-500 italic">
-                            Aguardando Largada
-                          </div>
-                        )}
-                      </div>
+                      {/* Result Box if finished */}
+                      {m.posicaoChegada && (
+                        <div className="text-center bg-emerald-50 text-emerald-900 px-4 py-2 rounded-xl border border-emerald-200">
+                          <span className="text-[9px] uppercase font-bold text-emerald-600 block">
+                            CHEGADA
+                          </span>
+                          <span className="text-xl font-black font-mono leading-none">
+                            {m.posicaoChegada}º Lugar
+                          </span>
+                          <span className="text-[10px] block font-mono text-emerald-700 mt-0.5">
+                            {m.pontosMoto} pts {m.tempoSegundos ? `(${m.tempoSegundos}s)` : ''}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

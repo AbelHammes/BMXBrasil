@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   BateriaMoto,
   Categoria,
+  CategoriaCombinada,
   FaseMoto,
   Inscricao,
   PilotoMotoState,
@@ -9,6 +10,7 @@ import {
 } from '../../types/bmx';
 import {
   calcularResultadoAcumuladoQualificatorias,
+  desmembrarResultadosPorCategoriaOriginal,
   gerarBateriasQualificatorias,
   recalcularPontosBateria,
   calcularPontosPilotoMoto,
@@ -36,6 +38,7 @@ import {
   Search,
   ShieldCheck,
   HardDrive,
+  X,
 } from 'lucide-react';
 import { salvarSnapshotNoStorage } from '../../utils/backupAndIntegrity';
 import { enviarNotificacaoAtleta } from '../../utils/browserNotifications';
@@ -44,16 +47,20 @@ import { PrintResultadosModal } from './PrintResultadosModal';
 
 interface RaceEngineSQORZProps {
   provas: ProvaEvento[];
+  setProvas?: React.Dispatch<React.SetStateAction<ProvaEvento[]>>;
   categorias: Categoria[];
   inscricoes: Inscricao[];
+  setInscricoes?: React.Dispatch<React.SetStateAction<Inscricao[]>>;
   baterias: BateriaMoto[];
   setBaterias: React.Dispatch<React.SetStateAction<BateriaMoto[]>>;
 }
 
 export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
   provas,
+  setProvas,
   categorias,
   inscricoes,
+  setInscricoes,
   baterias,
   setBaterias,
 }) => {
@@ -68,6 +75,12 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
   const [metodoSorteio, setMetodoSorteio] = useState<MetodoSorteio>('UCI_RANDOM');
   const [mensagemStatus, setMensagemStatus] = useState<string | null>(null);
 
+  // Combine categories modal state
+  const [showCombineModal, setShowCombineModal] = useState<boolean>(false);
+  const [selectedCatIdsToCombine, setSelectedCatIdsToCombine] = useState<string[]>([]);
+  const [nomeCombinadaInput, setNomeCombinadaInput] = useState<string>('');
+  const [modoExibicaoStandings, setModoExibicaoStandings] = useState<'COMBINADO' | 'DESMEMBRADO'>('COMBINADO');
+
   // New features state
   const [modoVisualizacao, setModoVisualizacao] = useState<'POR_CATEGORIA' | 'ORDEM_CORRIDAS'>('POR_CATEGORIA');
   const [faseOrdemCorridas, setFaseOrdemCorridas] = useState<string>('TODAS');
@@ -77,7 +90,138 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
   const [showPrintResultadosModal, setShowPrintResultadosModal] = useState<boolean>(false);
 
   const provaAtiva = provas.find((p) => p.id === provaSelecionadaId);
-  const categoriaAtiva = categorias.find((c) => c.id === categoriaSelecionadaId);
+  const minAtletasRegra = provaAtiva?.minAtletasCategoria || 4;
+
+  // Build list of all categories applicable to this prova, including combined ones
+  const categoriasDoEvento = React.useMemo(() => {
+    const map = new Map<string, Categoria & { isCombinada?: boolean; countInscritos?: number }>();
+
+    categorias.forEach((c) => {
+      const count = inscricoes.filter((ins) => ins.provaId === provaSelecionadaId && ins.categoriaId === c.id).length;
+      map.set(c.id, { ...c, isCombinada: false, countInscritos: count });
+    });
+
+    inscricoes
+      .filter((ins) => ins.provaId === provaSelecionadaId)
+      .forEach((ins) => {
+        if (!map.has(ins.categoriaId)) {
+          const count = inscricoes.filter((i) => i.provaId === provaSelecionadaId && i.categoriaId === ins.categoriaId).length;
+          map.set(ins.categoriaId, {
+            id: ins.categoriaId,
+            nome: ins.categoriaNome,
+            tipoBike: 'Aro 20"',
+            idadeMin: 0,
+            idadeMax: 99,
+            sexo: 'Misto',
+            isCombinada: true,
+            countInscritos: count,
+          });
+        }
+      });
+
+    return Array.from(map.values());
+  }, [categorias, inscricoes, provaSelecionadaId]);
+
+  const categoriaAtiva = categoriasDoEvento.find((c) => c.id === categoriaSelecionadaId) || categoriasDoEvento[0] || categorias[0];
+
+  const categoriasComPoucosInscritos = categoriasDoEvento.filter(
+    (c) => !c.isCombinada && (c.countInscritos || 0) > 0 && (c.countInscritos || 0) < minAtletasRegra
+  );
+
+  const handleConfirmarUniaoCategorias = () => {
+    if (selectedCatIdsToCombine.length < 2) {
+      alert('Selecione ao menos 2 categorias para unir!');
+      return;
+    }
+
+    const catsOrigem = categoriasDoEvento.filter((c) => selectedCatIdsToCombine.includes(c.id));
+    const nomeAuto = `Combinada (${catsOrigem.map((c) => c.nome).join(' + ')})`;
+    const finalName = nomeCombinadaInput.trim() || nomeAuto;
+    const combCatId = `comb-${Date.now()}`;
+
+    if (setInscricoes) {
+      setInscricoes((prev) =>
+        prev.map((ins) => {
+          if (ins.provaId === provaSelecionadaId && selectedCatIdsToCombine.includes(ins.categoriaId)) {
+            return {
+              ...ins,
+              categoriaOriginalId: ins.categoriaOriginalId || ins.categoriaId,
+              categoriaOriginalNome: ins.categoriaOriginalNome || ins.categoriaNome,
+              categoriaId: combCatId,
+              categoriaNome: finalName,
+            };
+          }
+          return ins;
+        })
+      );
+    }
+
+    if (setProvas) {
+      setProvas((prev) =>
+        prev.map((p) => {
+          if (p.id !== provaSelecionadaId) return p;
+          const novaComb: CategoriaCombinada = {
+            id: combCatId,
+            provaId: p.id,
+            nomeCombinada: finalName,
+            categoriasOrigemIds: selectedCatIdsToCombine,
+            categoriasOrigemNomes: catsOrigem.map((c) => c.nome),
+          };
+          return {
+            ...p,
+            categoriasCombinadas: [...(p.categoriasCombinadas || []), novaComb],
+            categoriasIds: Array.from(new Set([...p.categoriasIds, combCatId])),
+          };
+        })
+      );
+    }
+
+    setCategoriaSelecionadaId(combCatId);
+    setShowCombineModal(false);
+    setSelectedCatIdsToCombine([]);
+    setNomeCombinadaInput('');
+
+    setMensagemStatus(`✅ Categorias unidas com sucesso em "${finalName}"! Os atletas competirão juntos na pista, mas a premiação e ranking serão desmembrados.`);
+    setTimeout(() => setMensagemStatus(null), 5000);
+  };
+
+  const handleDesfazerCombinacao = (comb: CategoriaCombinada) => {
+    if (!confirm(`Deseja desfazer a união "${comb.nomeCombinada}"?`)) return;
+
+    if (setInscricoes) {
+      setInscricoes((prev) =>
+        prev.map((ins) => {
+          if (ins.provaId === provaSelecionadaId && (ins.categoriaId === comb.id || ins.categoriaNome === comb.nomeCombinada)) {
+            return {
+              ...ins,
+              categoriaId: ins.categoriaOriginalId || ins.categoriaId,
+              categoriaNome: ins.categoriaOriginalNome || ins.categoriaNome,
+              categoriaOriginalId: undefined,
+              categoriaOriginalNome: undefined,
+            };
+          }
+          return ins;
+        })
+      );
+    }
+
+    setBaterias((prev) => prev.filter((b) => !(b.provaId === provaSelecionadaId && (b.categoriaId === comb.id || b.categoriaNome === comb.nomeCombinada))));
+
+    if (setProvas) {
+      setProvas((prev) =>
+        prev.map((p) => {
+          if (p.id !== provaSelecionadaId) return p;
+          return {
+            ...p,
+            categoriasCombinadas: (p.categoriasCombinadas || []).filter((c) => c.id !== comb.id),
+          };
+        })
+      );
+    }
+
+    setMensagemStatus(`🔄 União "${comb.nomeCombinada}" desfeita com sucesso!`);
+    setTimeout(() => setMensagemStatus(null), 4000);
+  };
 
   // Filter inscritos for this event & category
   const inscritosCategoria = inscricoes.filter(
@@ -183,6 +327,8 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
       numeroPlaca: i.numeroPlaca,
       clubeNome: i.clubeNome,
       transponderId: i.transponderId,
+      categoriaOriginalId: i.categoriaOriginalId,
+      categoriaOriginalNome: i.categoriaOriginalNome,
       posicaoRanking: idx + 1, // Order of enrollment or ranking index
     }));
 
@@ -734,6 +880,14 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
             Gerar/Sorteiar
           </button>
           <button
+            onClick={() => setShowCombineModal(true)}
+            className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3.5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-1.5 text-xs sm:text-sm border border-purple-400/30"
+            title="Unir categorias com menos de N atletas inscritos para competirem juntas"
+          >
+            <Sliders className="w-4 h-4" />
+            Unir Categorias {categoriasComPoucosInscritos.length > 0 && `(${categoriasComPoucosInscritos.length})`}
+          </button>
+          <button
             onClick={() => setShowPrintBateriasModal(true)}
             className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3.5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-1.5 text-xs sm:text-sm border border-blue-400/30"
           >
@@ -916,6 +1070,27 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
         </div>
       </div>
 
+      {/* Warning banner for low count categories */}
+      {modoVisualizacao === 'POR_CATEGORIA' && categoriasComPoucosInscritos.length > 0 && (
+        <div className="bg-amber-950/60 border border-amber-500/40 p-3 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-amber-200 shadow-md">
+          <div className="flex items-center gap-2">
+            <Info className="w-5 h-5 text-amber-400 shrink-0" />
+            <span>
+              Atenção: <strong>{categoriasComPoucosInscritos.length} categorias</strong> possuem menos de <strong>{minAtletasRegra} atletas inscritos</strong> para formar categoria individual nesta prova ({categoriasComPoucosInscritos.map((c) => `${c.nome}: ${c.countInscritos}`).join(', ')}).
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setSelectedCatIdsToCombine(categoriasComPoucosInscritos.map((c) => c.id));
+              setShowCombineModal(true);
+            }}
+            className="bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-lg font-black hover:bg-amber-300 transition whitespace-nowrap shadow"
+          >
+            🔀 Unir Categorias Agora
+          </button>
+        </div>
+      )}
+
       {/* Selectors Bar (Only if Por Categoria view mode) */}
       {modoVisualizacao === 'POR_CATEGORIA' && (
         <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -947,9 +1122,10 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
               onChange={(e) => setCategoriaSelecionadaId(e.target.value)}
               className="w-full bg-slate-800 text-white text-sm font-semibold rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-amber-400"
             >
-              {categorias.map((c) => (
+              {categoriasDoEvento.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.nome} ({c.tipoBike})
+                  {c.isCombinada ? '🔀 ' : ''}{c.nome} ({c.countInscritos ?? 0} inscritos){' '}
+                  {c.countInscritos !== undefined && c.countInscritos > 0 && c.countInscritos < minAtletasRegra && !c.isCombinada ? `⚠️ (<${minAtletasRegra})` : ''}
                 </option>
               ))}
             </select>
@@ -1057,14 +1233,81 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
                 </span>
               </div>
 
+              {/* Toggle tab if category has combined riders */}
+              {standingsQualificatórias.some((s) => s.categoriaOriginalNome) && (
+                <div className="flex bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 mb-4">
+                  <button
+                    onClick={() => setModoExibicaoStandings('COMBINADO')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-black transition flex items-center justify-center gap-1 ${
+                      modoExibicaoStandings === 'COMBINADO'
+                        ? 'bg-amber-400 text-slate-950 shadow'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    🏁 Bateria Combinada
+                  </button>
+                  <button
+                    onClick={() => setModoExibicaoStandings('DESMEMBRADO')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-black transition flex items-center justify-center gap-1 ${
+                      modoExibicaoStandings === 'DESMEMBRADO'
+                        ? 'bg-purple-600 text-white shadow'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    🏆 Premiação Separada
+                  </button>
+                </div>
+              )}
+
               <p className="text-xs text-slate-400 mb-4">
-                Regra UCI BMX: Menor somatório de pontos avança para a próxima fase (Top 8 classificados).
+                {modoExibicaoStandings === 'DESMEMBRADO'
+                  ? 'Atletas desmembrados conforme a categoria original de cadastro para premiação e troféus:'
+                  : 'Regra UCI BMX: Menor somatório de pontos avança para a próxima fase (Top 8 classificados).'}
               </p>
 
               {standingsQualificatórias.length === 0 ? (
                 <p className="text-xs text-slate-500 text-center py-6 font-semibold">
                   Nenhum resultado registrado ainda.
                 </p>
+              ) : modoExibicaoStandings === 'DESMEMBRADO' ? (
+                <div className="space-y-4">
+                  {desmembrarResultadosPorCategoriaOriginal(standingsQualificatórias).map((catGroup) => (
+                    <div key={catGroup.categoriaOriginalNome} className="bg-slate-950/80 p-3.5 rounded-xl border border-purple-500/40 space-y-2">
+                      <div className="flex items-center justify-between border-b border-purple-500/30 pb-2">
+                        <span className="text-xs font-black text-purple-300 flex items-center gap-1">
+                          <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                          {catGroup.categoriaOriginalNome}
+                        </span>
+                        <span className="text-[10px] bg-purple-500/20 text-purple-200 px-2 py-0.5 rounded font-mono">
+                          Pódio Separado
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {catGroup.resultados.map((st, idx) => (
+                          <div key={st.atletaId} className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-5 h-5 rounded font-black text-[10px] flex items-center justify-center ${
+                                idx === 0 ? 'bg-amber-400 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400'
+                              }`}>
+                                {idx + 1}º
+                              </span>
+                              <div>
+                                <div className="font-bold text-white text-xs">#{st.numeroPlaca} {st.atletaNome}</div>
+                                <div className="text-[10px] text-slate-400">{st.clubeNome}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-mono font-black text-amber-400 text-xs">{st.totalPontos} pts</span>
+                              {idx === 0 && <div className="text-[9px] font-black text-amber-300 uppercase">🥇 Campeão</div>}
+                              {idx === 1 && <div className="text-[9px] font-black text-slate-300 uppercase">🥈 Vice</div>}
+                              {idx === 2 && <div className="text-[9px] font-black text-amber-600 uppercase">🥉 3º Lugar</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="space-y-2">
                   {standingsQualificatórias.map((st, idx) => (
@@ -1093,6 +1336,11 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
                         <div>
                           <div className="font-bold text-xs text-white flex items-center gap-1.5">
                             #{st.numeroPlaca} {st.atletaNome}
+                            {st.categoriaOriginalNome && (
+                              <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-mono">
+                                ({st.categoriaOriginalNome})
+                              </span>
+                            )}
                           </div>
                           <div className="text-[10px] text-slate-400">
                             {st.clubeNome}
@@ -1179,6 +1427,140 @@ export const RaceEngineSQORZ: React.FC<RaceEngineSQORZProps> = ({
         provaSelecionadaId={provaSelecionadaId}
         categoriaSelecionadaId={categoriaSelecionadaId}
       />
+
+      {/* Modal para Unir / Combinar Categorias */}
+      {showCombineModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full text-slate-100 shadow-2xl p-6 space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center font-bold">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">Unir / Combinar Categorias</h3>
+                  <p className="text-xs text-slate-400">
+                    Junte categorias sem quorum mínimo ({minAtletasRegra} atletas) para correrem juntas no sorteio
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCombineModal(false)}
+                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Selecione as Categorias a Serem Combinadas:
+                </label>
+                <div className="max-h-60 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                  {categoriasDoEvento.filter((c) => !c.isCombinada).map((c) => {
+                    const isChecked = selectedCatIdsToCombine.includes(c.id);
+                    const count = c.countInscritos || 0;
+                    const isLow = count < minAtletasRegra;
+                    return (
+                      <label
+                        key={c.id}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition ${
+                          isChecked
+                            ? 'bg-purple-900/30 border-purple-500/60 text-white'
+                            : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCatIdsToCombine((prev) => [...prev, c.id]);
+                              } else {
+                                setSelectedCatIdsToCombine((prev) => prev.filter((id) => id !== c.id));
+                              }
+                            }}
+                            className="rounded border-slate-700 text-purple-600 focus:ring-purple-500 bg-slate-800 w-4 h-4"
+                          />
+                          <div>
+                            <span className="font-bold text-sm block">{c.nome}</span>
+                            <span className="text-[10px] text-slate-400">{c.tipoBike}</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`font-mono text-xs px-2 py-0.5 rounded font-bold ${
+                            isLow ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-300'
+                          }`}
+                        >
+                          {count} inscritos {isLow ? `⚠️ (<${minAtletasRegra})` : 'OK'}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Nome da Categoria Combinada (Opcional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Boys 15/16 Anos (Combinada)"
+                  value={nomeCombinadaInput}
+                  onChange={(e) => setNomeCombinadaInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-semibold text-xs focus:outline-none focus:border-purple-400"
+                />
+              </div>
+
+              <div className="bg-purple-950/40 border border-purple-500/30 p-3 rounded-xl text-[11px] text-purple-200 space-y-1">
+                <strong className="block text-purple-300 font-bold">ℹ️ Regra de Negócio para Categoria Combinada:</strong>
+                <p>• Os atletas competirão nos mesmos portões e baterias da categoria combinada.</p>
+                <p>• Na premiação e relatórios de pódio, os atletas são desmembrados para premiar conforme a categoria de cadastro original.</p>
+              </div>
+
+              {/* Uniaões Existentes */}
+              {provaAtiva?.categoriasCombinadas && provaAtiva.categoriasCombinadas.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-800">
+                  <span className="font-bold text-slate-300 text-xs block">Uniaões Existentes nesta Prova:</span>
+                  {provaAtiva.categoriasCombinadas.map((comb) => (
+                    <div key={comb.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-800 text-xs">
+                      <div>
+                        <span className="font-bold text-purple-300">{comb.nomeCombinada}</span>
+                        <div className="text-[10px] text-slate-400">Origem: {comb.categoriasOrigemNomes.join(', ')}</div>
+                      </div>
+                      <button
+                        onClick={() => handleDesfazerCombinacao(comb)}
+                        className="bg-rose-900/40 hover:bg-rose-900 text-rose-300 border border-rose-700/50 text-[10px] font-bold px-2.5 py-1 rounded-lg transition"
+                      >
+                        Desfazer União
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setShowCombineModal(false)}
+                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-bold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmarUniaoCategorias}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-black px-5 py-2.5 rounded-xl text-xs shadow-lg transition flex items-center gap-1.5"
+              >
+                <Sliders className="w-4 h-4" />
+                Confirmar União de Categorias
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -7,6 +7,7 @@ import {
   ProvaEvento,
   Ranking,
 } from '../../types/bmx';
+import { ordenarPilotosPorChegada } from '../../utils/uciBmEngine';
 import {
   Eye,
   Users,
@@ -591,7 +592,7 @@ export const SpectatorsPortal: React.FC<SpectatorsPortalProps> = ({
 
                   {/* Mobile View (< sm) */}
                   <div className="sm:hidden divide-y divide-slate-800/80">
-                    {bateria.pilotos.map((p) => (
+                    {ordenarPilotosPorChegada(bateria.pilotos).map((p) => (
                       <div key={p.atletaId} className="p-2 bg-slate-900/60 hover:bg-slate-800/80 transition flex items-center justify-between text-xs gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-mono font-black text-amber-400 text-xs bg-slate-950 px-1.5 py-0.5 rounded border border-amber-400/30 shrink-0">
@@ -642,7 +643,7 @@ export const SpectatorsPortal: React.FC<SpectatorsPortalProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/80 font-semibold">
-                        {bateria.pilotos.map((p) => (
+                        {ordenarPilotosPorChegada(bateria.pilotos).map((p) => (
                           <tr
                             key={p.atletaId}
                             className="hover:bg-slate-800/50 transition"

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { BateriaMoto, Categoria, ProvaEvento } from '../../types/bmx';
-import { calcularResultadoAcumuladoQualificatorias } from '../../utils/uciBmEngine';
+import {
+  calcularResultadoAcumuladoQualificatorias,
+  desmembrarResultadosPorCategoriaOriginal,
+  ordenarPilotosPorChegada,
+} from '../../utils/uciBmEngine';
 import { Printer, X, Trophy, Award, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 interface PrintResultadosModalProps {
@@ -28,7 +32,7 @@ export const PrintResultadosModal: React.FC<PrintResultadosModalProps> = ({
   const [bateriaFiltroId, setBateriaFiltroId] = useState<string>('');
   
   const [tipoFiltroResultado, setTipoFiltroResultado] = useState<
-    'POR_BATERIA' | 'GERAL_ACUMULADO' | 'TOP_8_FINALISTAS' | 'PREMIACAO_ELEGIVEIS'
+    'POR_BATERIA' | 'GERAL_ACUMULADO' | 'TOP_8_FINALISTAS' | 'PREMIACAO_ELEGIVEIS' | 'PREMIACAO_DESMEMBRADA'
   >('GERAL_ACUMULADO');
 
   const [topPremiacaoCount, setTopPremiacaoCount] = useState<number>(3); // Top 3, Top 5, or Top 8
@@ -125,6 +129,7 @@ export const PrintResultadosModal: React.FC<PrintResultadosModalProps> = ({
                       | 'GERAL_ACUMULADO'
                       | 'TOP_8_FINALISTAS'
                       | 'PREMIACAO_ELEGIVEIS'
+                      | 'PREMIACAO_DESMEMBRADA'
                   )
                 }
                 className="w-full bg-slate-800 text-amber-300 font-bold text-xs rounded-lg p-2.5 border border-slate-700 focus:outline-none focus:border-amber-400"
@@ -132,6 +137,7 @@ export const PrintResultadosModal: React.FC<PrintResultadosModalProps> = ({
                 <option value="GERAL_ACUMULADO">🏆 Resultado Geral Acumulado (Motos M1+M2+M3)</option>
                 <option value="TOP_8_FINALISTAS">⚡ Somente os 8 Melhores Colocados (Finalistas)</option>
                 <option value="PREMIACAO_ELEGIVEIS">🏅 Somente Elegíveis para Premiação (Pódio)</option>
+                <option value="PREMIACAO_DESMEMBRADA">🔀 Premiação Desmembrada por Categoria Original</option>
                 <option value="POR_BATERIA">🏁 Resultados Detalhados por Bateria</option>
               </select>
             </div>
@@ -313,7 +319,7 @@ export const PrintResultadosModal: React.FC<PrintResultadosModalProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800 print:divide-black">
-                            {b.pilotos.map((p) => (
+                            {ordenarPilotosPorChegada(b.pilotos).map((p) => (
                               <tr key={p.atletaId}>
                                 <td className="py-1.5 px-2 text-center border-r border-slate-800 print:border-black font-black text-amber-400 print:text-black">
                                   {p.gate}
@@ -340,6 +346,70 @@ export const PrintResultadosModal: React.FC<PrintResultadosModalProps> = ({
                                 </td>
                                 <td className="py-1.5 px-2 text-center font-mono font-black text-emerald-400 print:text-black">
                                   {p.pontosMoto !== undefined ? `${p.pontosMoto} pt` : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                ) : tipoFiltroResultado === 'PREMIACAO_DESMEMBRADA' ? (
+                  /* Display desmembrado tables by original category */
+                  <div className="space-y-6">
+                    {desmembrarResultadosPorCategoriaOriginal(standingsExibicao).map((catGroup) => (
+                      <div key={catGroup.categoriaOriginalNome} className="border border-purple-500/40 print:border-black p-4 rounded-xl space-y-3 bg-slate-900/60 print:bg-white">
+                        <div className="font-black text-sm text-purple-300 print:text-black border-b border-purple-500/30 print:border-black pb-2 flex justify-between items-center">
+                          <span>🏆 Premiação Categoria Original: <strong>{catGroup.categoriaOriginalNome}</strong></span>
+                          <span className="text-xs bg-purple-500/20 text-purple-200 print:text-black px-2 py-0.5 rounded font-mono">Pódio Desmembrado</span>
+                        </div>
+                        <table className="w-full text-left border-collapse border border-slate-700 print:border-black text-xs">
+                          <thead>
+                            <tr className="bg-slate-800 print:bg-gray-200 text-slate-200 print:text-black uppercase font-black text-[11px] border-b border-slate-700 print:border-black">
+                              <th className="py-2 px-2 text-center border-r border-slate-700 print:border-black w-14">COLOCAÇÃO</th>
+                              <th className="py-2 px-2 text-center border-r border-slate-700 print:border-black w-16">PLACA</th>
+                              <th className="py-2 px-2 border-r border-slate-700 print:border-black">ATLETA</th>
+                              <th className="py-2 px-2 border-r border-slate-700 print:border-black">CLUBE / EQUIPE</th>
+                              <th className="py-2 px-2 text-center border-r border-slate-700 print:border-black w-24">PONTOS ACUMULADOS</th>
+                              <th className="py-2 px-2 text-center w-28">PREMIAÇÃO</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800 print:divide-black">
+                            {catGroup.resultados.map((st, idx) => (
+                              <tr key={st.atletaId} className="print:text-black">
+                                <td className="py-2 px-2 text-center border-r border-slate-800 print:border-black font-black text-amber-400 print:text-black text-sm">
+                                  {idx + 1}º
+                                </td>
+                                <td className="py-2 px-2 text-center border-r border-slate-800 print:border-black font-mono font-black text-white print:text-black">
+                                  #{st.numeroPlaca}
+                                </td>
+                                <td className="py-2 px-2 border-r border-slate-800 print:border-black font-bold text-white print:text-black">
+                                  {st.atletaNome}
+                                </td>
+                                <td className="py-2 px-2 border-r border-slate-800 print:border-black text-slate-300 print:text-gray-800">
+                                  {st.clubeNome}
+                                </td>
+                                <td className="py-2 px-2 text-center border-r border-slate-800 print:border-black font-mono font-black text-amber-400 print:text-black text-sm">
+                                  {st.totalPontos} pts
+                                </td>
+                                <td className="py-2 px-2 text-center font-bold text-[10px]">
+                                  {idx === 0 ? (
+                                    <span className="bg-amber-400/20 text-amber-300 print:text-black border border-amber-400/40 px-2 py-0.5 rounded uppercase font-black">
+                                      🥇 CAMPEÃO (1º LUGAR)
+                                    </span>
+                                  ) : idx === 1 ? (
+                                    <span className="bg-slate-300/20 text-slate-200 print:text-black border border-slate-300/40 px-2 py-0.5 rounded uppercase font-black">
+                                      🥈 VICE-CAMPEÃO (2º LUGAR)
+                                    </span>
+                                  ) : idx === 2 ? (
+                                    <span className="bg-amber-700/20 text-amber-500 print:text-black border border-amber-700/40 px-2 py-0.5 rounded uppercase font-black">
+                                      🥉 3º LUGAR
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 print:text-gray-600">
+                                      {idx + 1}º COLOCADO
+                                    </span>
+                                  )}
                                 </td>
                               </tr>
                             ))}
@@ -396,13 +466,17 @@ export const PrintResultadosModal: React.FC<PrintResultadosModalProps> = ({
                               <span className="bg-amber-400/20 text-amber-300 print:text-black border border-amber-400/40 px-2 py-0.5 rounded uppercase font-black">
                                 🏅 PÓDIO ({idx + 1}º LUGAR)
                               </span>
+                            ) : st.isFinalDireta ? (
+                              <span className="bg-amber-400/20 text-amber-300 print:text-black border border-amber-400/40 px-2 py-0.5 rounded uppercase font-black">
+                                {st.situacaoTexto}
+                              </span>
                             ) : st.classificadoProximaFase ? (
-                              <span className="bg-emerald-500/20 text-emerald-300 print:text-black border border-emerald-500/30 px-2 py-0.5 rounded">
-                                CLASSIFICADO TOP 8
+                              <span className="bg-emerald-500/20 text-emerald-300 print:text-black border border-emerald-500/30 px-2 py-0.5 rounded font-bold">
+                                {st.situacaoTexto || 'CLASSIFICADO TOP 8'}
                               </span>
                             ) : (
                               <span className="text-slate-400 print:text-gray-600">
-                                ELIMINADO
+                                {st.situacaoTexto || 'ELIMINADO'}
                               </span>
                             )}
                           </td>

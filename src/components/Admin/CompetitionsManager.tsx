@@ -32,6 +32,7 @@ export const CompetitionsManager: React.FC<CompetitionsManagerProps> = ({
   const [cidadeEstado, setCidadeEstado] = useState('');
   const [data, setData] = useState('');
   const [valorInscricao, setValorInscricao] = useState('120');
+  const [minAtletasCategoria, setMinAtletasCategoria] = useState('4');
   const [rankingId, setRankingId] = useState('');
   const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<string[]>(
     categorias.map((c) => c.id)
@@ -54,6 +55,7 @@ export const CompetitionsManager: React.FC<CompetitionsManagerProps> = ({
       rankingId: rankingId || undefined,
       rankingNome: rankingEncontrado?.nomeRanking,
       valorInscricao: parseFloat(valorInscricao) || 0,
+      minAtletasCategoria: parseInt(minAtletasCategoria) || 4,
       categoriasIds: categoriasSelecionadas,
       status: 'Inscrições Abertas',
       inscritosCount: 0,
@@ -256,6 +258,7 @@ export const CompetitionsManager: React.FC<CompetitionsManagerProps> = ({
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 mb-1">Valor da Inscrição (R$) *</label>
                   <input
@@ -267,6 +270,19 @@ export const CompetitionsManager: React.FC<CompetitionsManagerProps> = ({
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
+                <div>
+                  <label className="block text-slate-700 mb-1">Mínimo de Atletas p/ Categoria *</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    max="8"
+                    value={minAtletasCategoria}
+                    onChange={(e) => setMinAtletasCategoria(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
               </div>
 
               <div>

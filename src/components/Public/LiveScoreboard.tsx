@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BateriaMoto, Categoria, ProvaEvento } from '../../types/bmx';
+import { ordenarPilotosPorChegada } from '../../utils/uciBmEngine';
 import {
   Volume2,
   Trophy,
@@ -141,7 +142,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80 text-sm font-semibold">
-                    {bateria.pilotos.map((p) => (
+                    {ordenarPilotosPorChegada(bateria.pilotos).map((p) => (
                       <tr key={p.atletaId} className="hover:bg-slate-900/80 transition">
                         <td className="py-3 px-3 text-center font-mono font-black text-amber-400 text-base">
                           {p.gate}

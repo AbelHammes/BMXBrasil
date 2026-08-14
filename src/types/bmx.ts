@@ -44,6 +44,7 @@ export interface Atleta {
   categoriaNome: string;
   transponderId: string;
   fotoUrl?: string;
+  senha?: string; // Senha/PIN de acesso do atleta ao painel individual
 }
 
 export interface CriterioPontuacao {
@@ -62,6 +63,14 @@ export interface Ranking {
 
 export type StatusProva = 'Inscrições Abertas' | 'Em Andamento' | 'Concluída' | 'Agendada';
 
+export interface CategoriaCombinada {
+  id: string;
+  provaId: string;
+  nomeCombinada: string;
+  categoriasOrigemIds: string[];
+  categoriasOrigemNomes: string[];
+}
+
 export interface ProvaEvento {
   id: string;
   nome: string;
@@ -76,6 +85,8 @@ export interface ProvaEvento {
   status: StatusProva;
   inscritosCount?: number;
   organizador?: string;
+  minAtletasCategoria?: number; // Default e.g. 4
+  categoriasCombinadas?: CategoriaCombinada[];
 }
 
 export type StatusPagamento = 'Confirmada' | 'Pendente' | 'Isento';
@@ -89,6 +100,8 @@ export interface Inscricao {
   clubeNome: string;
   categoriaId: string;
   categoriaNome: string;
+  categoriaOriginalId?: string;
+  categoriaOriginalNome?: string;
   numeroPlaca: string;
   transponderId: string;
   statusPagamento: StatusPagamento;
@@ -105,6 +118,8 @@ export interface PilotoMotoState {
   numeroPlaca: string;
   clubeNome: string;
   transponderId: string;
+  categoriaOriginalId?: string;
+  categoriaOriginalNome?: string;
   gate: number; // 1 a 8
   posicaoChegada?: number; // 1 a 8
   statusResult?: 'OK' | 'DNF' | 'DNS' | 'REL';

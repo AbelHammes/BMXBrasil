@@ -54,6 +54,8 @@ export interface RiderInscritoInput {
   numeroPlaca: string;
   clubeNome: string;
   transponderId: string;
+  categoriaOriginalId?: string;
+  categoriaOriginalNome?: string;
   posicaoRanking?: number;
 }
 
@@ -123,6 +125,8 @@ export function gerarBateriasQualificatorias(
           numeroPlaca: r.numeroPlaca,
           clubeNome: r.clubeNome,
           transponderId: r.transponderId,
+          categoriaOriginalId: r.categoriaOriginalId,
+          categoriaOriginalNome: r.categoriaOriginalNome,
           gate: gates[rIdx] || (rIdx + 1),
         }));
 
@@ -259,24 +263,53 @@ export function recalcularPontosBateria(bateria: BateriaMoto): BateriaMoto {
   };
 }
 
-/**
- * Calculates standings from qualifying motos (Motos 1, 2, 3) using UCI points sum (1pt for 1st, 2pt for 2nd...)
- */
-export function calcularResultadoAcumuladoQualificatorias(
-  baterias: BateriaMoto[]
-): {
+export function ordenarPilotosPorChegada(pilotos: PilotoMotoState[]): PilotoMotoState[] {
+  return [...pilotos].sort((a, b) => {
+    const getPriority = (p: PilotoMotoState) => {
+      if (p.posicaoChegada && p.posicaoChegada > 0) return p.posicaoChegada;
+      if (p.statusResult === 'REL') return 90;
+      if (p.statusResult === 'DNF') return 91;
+      if (p.statusResult === 'DNS') return 92;
+      return 100 + p.gate;
+    };
+
+    const prioA = getPriority(a);
+    const prioB = getPriority(b);
+
+    if (prioA !== prioB) {
+      return prioA - prioB;
+    }
+
+    return a.gate - b.gate;
+  });
+}
+
+export interface ResultadoAcumuladoAtleta {
   atletaId: string;
   atletaNome: string;
   numeroPlaca: string;
   clubeNome: string;
   transponderId: string;
+  categoriaOriginalId?: string;
+  categoriaOriginalNome?: string;
   pontosMoto1: number;
   pontosMoto2: number;
   pontosMoto3: number;
   totalPontos: number;
   melhorTempo?: number;
   classificadoProximaFase: boolean;
-}[] {
+  isFinalDireta: boolean;
+  situacaoTexto: string;
+  posicaoFinal: number;
+  posicaoPremiaOriginal?: number;
+}
+
+/**
+ * Calculates standings from qualifying motos (Motos 1, 2, 3) using UCI points sum (1pt for 1st, 2pt for 2nd...)
+ */
+export function calcularResultadoAcumuladoQualificatorias(
+  baterias: BateriaMoto[]
+): ResultadoAcumuladoAtleta[] {
   const mapaAtletas = new Map<
     string,
     {
@@ -285,6 +318,8 @@ export function calcularResultadoAcumuladoQualificatorias(
       numeroPlaca: string;
       clubeNome: string;
       transponderId: string;
+      categoriaOriginalId?: string;
+      categoriaOriginalNome?: string;
       p1: number;
       p2: number;
       p3: number;
@@ -303,6 +338,8 @@ export function calcularResultadoAcumuladoQualificatorias(
           numeroPlaca: p.numeroPlaca,
           clubeNome: p.clubeNome,
           transponderId: p.transponderId,
+          categoriaOriginalId: p.categoriaOriginalId,
+          categoriaOriginalNome: p.categoriaOriginalNome,
           p1: 0,
           p2: 0,
           p3: 0,
@@ -313,9 +350,9 @@ export function calcularResultadoAcumuladoQualificatorias(
       const record = mapaAtletas.get(p.atletaId)!;
       const pontosPos = p.pontosMoto !== undefined ? p.pontosMoto : 8;
 
-      if (bateria.fase === 'Moto 1' || bateria.fase === 'Classificatória 1') record.p1 = pontosPos;
-      if (bateria.fase === 'Moto 2' || bateria.fase === 'Classificatória 2') record.p2 = pontosPos;
-      if (bateria.fase === 'Moto 3' || bateria.fase === 'Classificatória 3') record.p3 = pontosPos;
+      if ((bateria.fase as string) === 'Moto 1' || (bateria.fase as string) === 'Classificatória 1') record.p1 = pontosPos;
+      if ((bateria.fase as string) === 'Moto 2' || (bateria.fase as string) === 'Classificatória 2') record.p2 = pontosPos;
+      if ((bateria.fase as string) === 'Moto 3' || (bateria.fase as string) === 'Classificatória 3') record.p3 = pontosPos;
 
       if (p.tempoSegundos && p.tempoSegundos > 0) {
         record.tempos.push(p.tempoSegundos);
@@ -332,19 +369,34 @@ export function calcularResultadoAcumuladoQualificatorias(
       numeroPlaca: rec.numeroPlaca,
       clubeNome: rec.clubeNome,
       transponderId: rec.transponderId,
+      categoriaOriginalId: rec.categoriaOriginalId,
+      categoriaOriginalNome: rec.categoriaOriginalNome,
       pontosMoto1: rec.p1,
       pontosMoto2: rec.p2,
       pontosMoto3: rec.p3,
       totalPontos,
       melhorTempo: minTempo,
       classificadoProximaFase: false,
+      isFinalDireta: false,
+      situacaoTexto: '',
+      posicaoFinal: 0,
     };
   });
 
-  // Sort by lowest points (UCI rule) then best time
+  // Sort by lowest total points (UCI rule)
+  // Tie-breakers: Moto 3 finish, Moto 2 finish, Moto 1 finish, then best lap time
   resultados.sort((a, b) => {
     if (a.totalPontos !== b.totalPontos) {
       return a.totalPontos - b.totalPontos;
+    }
+    if (a.pontosMoto3 !== b.pontosMoto3) {
+      return a.pontosMoto3 - b.pontosMoto3;
+    }
+    if (a.pontosMoto2 !== b.pontosMoto2) {
+      return a.pontosMoto2 - b.pontosMoto2;
+    }
+    if (a.pontosMoto1 !== b.pontosMoto1) {
+      return a.pontosMoto1 - b.pontosMoto1;
     }
     if (a.melhorTempo && b.melhorTempo) {
       return a.melhorTempo - b.melhorTempo;
@@ -352,10 +404,36 @@ export function calcularResultadoAcumuladoQualificatorias(
     return 0;
   });
 
-  // Mark top 8 (or top 4 per heat) as qualified for Final/Semi
+  // Determine if this category is a Direct Final (8 or fewer total riders, no semifinals/quarters)
+  const totalAtletas = resultados.length;
+  const isFinalDireta = totalAtletas <= 8;
+
   resultados.forEach((res, idx) => {
-    if (idx < 8) {
-      res.classificadoProximaFase = true;
+    const pos = idx + 1;
+    res.posicaoFinal = pos;
+    res.isFinalDireta = isFinalDireta;
+
+    if (isFinalDireta) {
+      // Direct Final category (only 3 Motos): present final position
+      if (pos === 1) {
+        res.situacaoTexto = '1º LUGAR (CAMPEÃO)';
+      } else if (pos === 2) {
+        res.situacaoTexto = '2º LUGAR (VICE)';
+      } else if (pos === 3) {
+        res.situacaoTexto = '3º LUGAR';
+      } else {
+        res.situacaoTexto = `${pos}º LUGAR`;
+      }
+      res.classificadoProximaFase = false;
+    } else {
+      // Category with next phase (> 8 riders): top 8 advance
+      if (pos <= 8) {
+        res.classificadoProximaFase = true;
+        res.situacaoTexto = 'CLASSIFICADO TOP 8';
+      } else {
+        res.classificadoProximaFase = false;
+        res.situacaoTexto = 'ELIMINADO';
+      }
     }
   });
 
@@ -383,6 +461,58 @@ export const TABELA_PONTOS_UCI = [
   { posicao: 15, pontos: 8 },
   { posicao: 16, pontos: 6 },
 ];
+
+export interface ResultadoPremiacaoCategoriaOriginal {
+  categoriaOriginalId?: string;
+  categoriaOriginalNome: string;
+  atletas: ResultadoAcumuladoAtleta[];
+  resultados: ResultadoAcumuladoAtleta[];
+}
+
+/**
+  * Splits combined category standings into separate podiums/rankings based on riders' original registered categories.
+  */
+export function desmembrarResultadosPorCategoriaOriginal(
+  resultadosGerais: ResultadoAcumuladoAtleta[]
+): ResultadoPremiacaoCategoriaOriginal[] {
+  const grupos = new Map<string, ResultadoAcumuladoAtleta[]>();
+
+  resultadosGerais.forEach((atleta) => {
+    const nomeCatOrig = atleta.categoriaOriginalNome || 'Categoria Padrão';
+    if (!grupos.has(nomeCatOrig)) {
+      grupos.set(nomeCatOrig, []);
+    }
+    grupos.get(nomeCatOrig)!.push({ ...atleta });
+  });
+
+  const resultadoDesmembrado: ResultadoPremiacaoCategoriaOriginal[] = [];
+
+  grupos.forEach((listaAtletas, nomeCatOrig) => {
+    const atletasAtualizados = listaAtletas.map((atleta, idx) => {
+      const posOriginal = idx + 1;
+      let situacao = '';
+      if (posOriginal === 1) situacao = '1º LUGAR (CAMPEÃO)';
+      else if (posOriginal === 2) situacao = '2º LUGAR (VICE)';
+      else if (posOriginal === 3) situacao = '3º LUGAR';
+      else situacao = `${posOriginal}º LUGAR`;
+
+      return {
+        ...atleta,
+        posicaoPremiaOriginal: posOriginal,
+        situacaoTexto: situacao,
+      };
+    });
+
+    resultadoDesmembrado.push({
+      categoriaOriginalId: listaAtletas[0]?.categoriaOriginalId,
+      categoriaOriginalNome: nomeCatOrig,
+      atletas: atletasAtualizados,
+      resultados: atletasAtualizados,
+    });
+  });
+
+  return resultadoDesmembrado;
+}
 
 export function obterPontosPosicao(posicao: number): number {
   const item = TABELA_PONTOS_UCI.find((t) => t.posicao === posicao);

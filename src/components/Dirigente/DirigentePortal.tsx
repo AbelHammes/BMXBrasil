@@ -12,7 +12,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Upload,
+  FileSpreadsheet,
+  Download,
 } from 'lucide-react';
+import { ModalImportarInscritosExcel } from '../Admin/ModalImportarInscritosExcel';
+import { baixarPlanilhaModeloBMX } from '../../utils/excelImportExport';
 
 interface DirigentePortalProps {
   clubes: ClubeEquipe[];
@@ -38,6 +42,7 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
   // Default to first club (or allow switching)
   const [clubeAtivoId, setClubeAtivoId] = useState<string>(clubes[0]?.id || '');
   const [modalNovoAtleta, setModalNovoAtleta] = useState(false);
+  const [modalExcelOpen, setModalExcelOpen] = useState(false);
   const [modalInscreverAtletas, setModalInscreverAtletas] = useState(false);
   const [provaInscricaoId, setProvaInscricaoId] = useState<string>(provas[0]?.id || '');
   const [mensagem, setMensagem] = useState<string | null>(null);
@@ -168,7 +173,7 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
         </div>
 
         {/* Club Switcher & Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={clubeAtivoId}
             onChange={(e) => setClubeAtivoId(e.target.value)}
@@ -182,11 +187,29 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
           </select>
 
           <button
+            onClick={() => baixarPlanilhaModeloBMX(categorias, clubes)}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold px-3 py-2 rounded-xl border border-slate-700 shadow transition flex items-center gap-1.5 text-xs shrink-0"
+            title="Baixar modelo Excel para preenchimento de inscrições da equipe"
+          >
+            <Download className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Modelo Excel</span>
+          </button>
+
+          <button
+            onClick={() => setModalExcelOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-2.5 rounded-xl shadow transition flex items-center gap-1.5 text-xs shrink-0"
+            title="Importar planilha de atletas do clube e inscrever em lote"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+            <span>Importar Excel</span>
+          </button>
+
+          <button
             onClick={() => setModalNovoAtleta(true)}
-            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-4 py-2.5 rounded-xl shadow transition flex items-center gap-1.5 text-xs shrink-0"
+            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-3.5 py-2.5 rounded-xl shadow transition flex items-center gap-1.5 text-xs shrink-0"
           >
             <Plus className="w-4 h-4" />
-            Novo Atleta
+            <span>Novo Atleta</span>
           </button>
         </div>
       </div>
@@ -434,6 +457,20 @@ export const DirigentePortal: React.FC<DirigentePortalProps> = ({
           </div>
         </div>
       )}
+
+      {/* Bulk Excel Import Modal */}
+      <ModalImportarInscritosExcel
+        isOpen={modalExcelOpen}
+        onClose={() => setModalExcelOpen(false)}
+        provas={provas}
+        categorias={categorias}
+        clubes={clubes}
+        atletas={atletas}
+        setAtletas={setAtletas}
+        inscricoes={inscricoes}
+        setInscricoes={setInscricoes}
+        initialProvaId={provas[0]?.id || undefined}
+      />
     </div>
   );
 };
